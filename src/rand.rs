@@ -259,7 +259,7 @@ mod tests {
         let p: u128 = rng.gen_prime_exact(128, None);
         assert!(is_prime(&p, None).probably());
         assert_eq!(p.leading_zeros(), 0);
-        
+
         // test random safe prime generation
         let p: u8 = rng.gen_safe_prime_exact(8);
         assert!(is_safe_prime(&p).probably());

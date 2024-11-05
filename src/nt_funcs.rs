@@ -16,8 +16,7 @@ use crate::factor::{one_line, pollard_rho, squfof, SQUFOF_MULTIPLIERS};
 use crate::mint::SmallMint;
 use crate::primality::{PrimalityBase, PrimalityRefBase};
 use crate::tables::{
-    MOEBIUS_ODD, SMALL_PRIMES, SMALL_PRIMES_NEXT, WHEEL_NEXT, WHEEL_PREV,
-    WHEEL_SIZE,
+    MOEBIUS_ODD, SMALL_PRIMES, SMALL_PRIMES_NEXT, WHEEL_NEXT, WHEEL_PREV, WHEEL_SIZE,
 };
 #[cfg(feature = "big-table")]
 use crate::tables::{SMALL_PRIMES_INV, ZETA_LOG_TABLE};
@@ -33,7 +32,7 @@ use std::collections::BTreeMap;
 use std::convert::TryFrom;
 
 #[cfg(feature = "big-table")]
-use crate::tables::{MILLER_RABIN_BASE64, MILLER_RABIN_BASE32};
+use crate::tables::{MILLER_RABIN_BASE32, MILLER_RABIN_BASE64};
 
 /// Fast primality test on a u64 integer. It's based on
 /// deterministic Miller-rabin tests. If target is larger than 2^64 or more
@@ -1046,7 +1045,7 @@ mod tests {
             assert_eq!(SMALL_PRIMES.contains(&x), is_prime64(x as u64));
         }
         assert!(is_prime64(677));
-        
+
         // from PR #7
         assert!(!is_prime64(9773));
         assert!(!is_prime64(13357));
