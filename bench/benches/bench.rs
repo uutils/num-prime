@@ -8,6 +8,8 @@ use num_bigint::RandBigInt;
 use num_prime::{nt_funcs, RandPrime};
 #[cfg(feature = "num-primes")]
 use num_primes::{Generator, Verification};
+
+#[cfg(target_arch = "x86_64")]
 use number_theory::NumberTheory;
 use primal_check::miller_rabin;
 
@@ -24,9 +26,12 @@ pub fn bench_is_prime(c: &mut Criterion) {
     group.bench_function("num-prime (this crate)", |b| {
         b.iter(|| numbers().filter(|&n| nt_funcs::is_prime64(n)).count())
     });
+
+    #[cfg(target_arch = "x86_64")]
     group.bench_function("number-theory", |b| {
         b.iter(|| numbers().filter(|&n| NumberTheory::is_prime(&n)).count())
     });
+
     #[cfg(feature = "num-primes")]
     group.bench_function("num-primes", |b| {
         b.iter(|| {
@@ -193,6 +198,8 @@ pub fn bench_factorization(c: &mut Criterion) {
                 .count()
         })
     });
+
+    #[cfg(target_arch = "x86_64")]
     group.bench_function("number-theory", |b| {
         b.iter(|| {
             numbers()
