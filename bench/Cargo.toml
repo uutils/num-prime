@@ -11,7 +11,7 @@ harness = false
 [dependencies]
 num-bigint = "0.4"
 num-prime = { path = ".." }
-criterion = "0.3"
+codspeed-criterion-compat = "2.0"
 rand = "0.8"
 
 num-primes = { version = "0.3.0", optional = true }

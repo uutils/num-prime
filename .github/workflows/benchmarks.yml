@@ -1,0 +1,42 @@
+name: Benchmarks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - '*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  benchmarks:
+    name: Run benchmarks (CodSpeed)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-codspeed
+        shell: bash
+        run: cargo install cargo-codspeed --locked
+
+      - name: Build benchmarks
+        shell: bash
+        run: cargo codspeed build -p num-prime-bench
+
+      - name: Run benchmarks
+        uses: CodSpeedHQ/action@v4
+        with:
+          mode: simulation
+          run: cargo codspeed run -p num-prime-bench
+          token: ${{ secrets.CODSPEED_TOKEN }}

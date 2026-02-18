@@ -1,8 +1,6 @@
-#[macro_use]
-extern crate criterion;
 use std::iter::repeat_with;
 
-use criterion::{Criterion, SamplingMode};
+use codspeed_criterion_compat::{criterion_group, criterion_main, Criterion, SamplingMode};
 use glass_pumpkin::{prime as gprime, safe_prime as safe_gprime};
 use num_bigint::RandBigInt;
 use num_prime::{nt_funcs, RandPrime};
