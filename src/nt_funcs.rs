@@ -1376,4 +1376,16 @@ mod tests {
             assert_eq!(next_prime(&pow, None).unwrap(), *p2);
         }
     }
+
+    #[test]
+    fn factors_overflow_test() {
+        // Test for issue #23: multiplication overflow in one_line factorization
+        // This should not panic in debug builds
+        let problematic_number = 0x3ffffffffffffff8u64;
+        let (factors_map, cofactors) = factors(problematic_number, None);
+        
+        // Verify that we get some result (even if factorization is incomplete)
+        // The function should not panic due to overflow
+        assert!(!factors_map.is_empty() || cofactors.is_some());
+    }
 }
