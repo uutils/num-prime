@@ -10,7 +10,7 @@
 use crate::traits::ExactRoots;
 use num_integer::{Integer, Roots};
 use num_modular::{ModularCoreOps, ModularUnaryOps};
-use num_traits::{CheckedAdd, FromPrimitive, NumRef, RefNum};
+use num_traits::{CheckedAdd, CheckedMul, FromPrimitive, NumRef, RefNum};
 use std::collections::BTreeMap;
 
 /// Find factors by trial division, returns a tuple of the found factors and the residual.
@@ -281,7 +281,7 @@ pub const SQUFOF_MULTIPLIERS: [u16; 38] = [
 ///
 /// Reference: Hart, W. B. (2012). A one line factoring algorithm. Journal of the Australian Mathematical Society, 92(1), 61-69. doi:10.1017/S1446788712000146
 // TODO: add multipliers preset for one_line method?
-pub fn one_line<T: Integer + NumRef + FromPrimitive + ExactRoots + CheckedAdd>(
+pub fn one_line<T: Integer + NumRef + FromPrimitive + ExactRoots + CheckedAdd + CheckedMul>(
     target: &T,
     mul_target: T,
     max_iter: usize,
@@ -297,7 +297,15 @@ where
     let mut ikn = mul_target.clone();
     for i in 1..max_iter {
         let s = ikn.sqrt() + T::one(); // assuming target is not perfect square
-        let m = &s * &s - &ikn;
+
+        // Use checked multiplication to prevent overflow
+        let s_squared = if let Some(result) = s.checked_mul(&s) {
+            result
+        } else {
+            // If s*s would overflow, this method won't work for this range
+            return (None, i);
+        };
+        let m = s_squared - &ikn;
         if let Some(t) = m.sqrt_exact() {
             let g = target.gcd(&(s - t));
             if !g.is_one() && &g != target {

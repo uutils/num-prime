@@ -1383,9 +1383,28 @@ mod tests {
         // This should not panic in debug builds
         let problematic_number = 0x3ffffffffffffff8u64;
         let (factors_map, cofactors) = factors(problematic_number, None);
-        
-        // Verify that we get some result (even if factorization is incomplete)
+
+        // Verify that we get the correct factorization: 2^3 × 179951 × 3203431780337
         // The function should not panic due to overflow
-        assert!(!factors_map.is_empty() || cofactors.is_some());
+        assert!(!factors_map.is_empty(), "Should find at least some factors");
+
+        // Verify the product of all factors equals the original number
+        let mut product = 1u64;
+        for (factor, count) in &factors_map {
+            product = product
+                .checked_mul(factor.pow(*count as u32))
+                .expect("Product computation should not overflow");
+        }
+        if let Some(ref remaining) = cofactors {
+            for cofactor in remaining {
+                product = product
+                    .checked_mul(*cofactor)
+                    .expect("Product computation should not overflow");
+            }
+        }
+        assert_eq!(
+            product, problematic_number,
+            "Product of factors should equal original number"
+        );
     }
 }
