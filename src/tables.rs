@@ -89,7 +89,7 @@ pub const SMALL_PRIMES_NEXT: u64 = 8167;
 
 //////////////////// Pre-computed inversions for primes ////////////////////
 #[cfg(feature = "big-table")]
-type P64 = num_modular::PreInv<u64>;
+type P64 = num_modular::PreModInv<u64>;
 
 /// Precomputed modular inverse for fast divisibility check
 ///
@@ -17860,9 +17860,9 @@ for s in selections:
 ```
 */
 
-#[cfg(not(feature = "big-table"))]
+#[cfg(all(not(feature = "big-table"), feature = "num-bigint"))]
 pub const QUAD_MODULI: [u8; 4] = [63, 65, 61, 59]; // note that 0 and 64 are both square mod 65
-#[cfg(not(feature = "big-table"))]
+#[cfg(all(not(feature = "big-table"), feature = "num-bigint"))]
 pub const QUAD_RESIDUAL: [u64; 4] = [
     0x0402483012450293,
     0x218a019866014613,
@@ -17870,9 +17870,9 @@ pub const QUAD_RESIDUAL: [u64; 4] = [
     0x022b62183e7b92bb,
 ];
 
-#[cfg(not(feature = "big-table"))]
+#[cfg(all(not(feature = "big-table"), feature = "num-bigint"))]
 pub const CUBIC_MODULI: [u8; 4] = [63, 61, 43, 37];
-#[cfg(not(feature = "big-table"))]
+#[cfg(all(not(feature = "big-table"), feature = "num-bigint"))]
 pub const CUBIC_RESIDUAL: [u64; 4] = [
     0x4080001818000103,
     0x1434026619900b0b,
@@ -17880,10 +17880,10 @@ pub const CUBIC_RESIDUAL: [u64; 4] = [
     0x00000010ac804d43,
 ];
 
-#[cfg(feature = "big-table")]
+#[cfg(all(feature = "big-table", feature = "num-bigint"))]
 pub const QUAD_MODULI: [u16; 8] = [819, 935, 989, 899, 1007, 1021, 1019, 1013];
 #[rustfmt::skip]
-#[cfg(feature = "big-table")]
+#[cfg(all(feature = "big-table", feature = "num-bigint"))]
 pub const QUAD_RESIDUAL: [[u64; 16]; 8] = [
     [0x0002_0810_0241_0213, 0xc200_0010_0902_8001, 0x0000_1200_0001_4024, 0x0080_4802_0208_a050, 0x1800_0482_0024_4029, 0x0420_1201_8002_0014, 0x2600_0000_8049_0408, 0x9100_0410_6020_0800, 0x0904_0048_0012_0100, 0x2402_0004_0008_2201, 0x4021_0092_0c00_0040, 0x0820_8040_0200_4880, 0x0000_0024_0301_2000, 0, 0, 0],
     [0x1882_0014_0601_8213, 0x0288_c110_0242_0065, 0x8208_4640_0c01_0180, 0x4841_1422_3000_0010, 0x8004_000e_0110_0101, 0x00c0_4218_0128_0810, 0x1304_2021_0401_8060, 0xe400_8230_1400_1088, 0x0422_8001_100a_4000, 0x00c2_3144_008c_0401, 0x0100_0110_8320_4400, 0x1000_2410_8e00_1802, 0x2200_c002_0845_2040, 0x0031_0020_080c_0204, 0x0000_0000_0014_0210, 0],
@@ -17895,10 +17895,10 @@ pub const QUAD_RESIDUAL: [[u64; 16]; 8] = [
     [0x557a_191c_03a9_ee53, 0xcee6_c01b_76be_d685, 0x62e3_3aa9_2c63_b5c4, 0x2d83_0be3_875f_feba, 0x59a7_c9d2_ba4e_854f, 0x49f1_8352_5a13_9bb6, 0x1762_cc0a_2801_b21b, 0x7384_3dd8_ff30_29f2, 0xba13_e503_3fc6_ef08, 0xe4b6_1360_0514_0cd1, 0x669b_7672_1692_b063, 0x6d3c_a85c_9752_e4f9, 0xd197_5ffe_b871_f430, 0xdcc8_eb71_8d25_5731, 0xaaa8_5adf_5bb6_00d9, 0x0012_9de5_700e_2617],
 ];
 
-#[cfg(feature = "big-table")]
+#[cfg(all(feature = "big-table", feature = "num-bigint"))]
 pub const CUBIC_MODULI: [u16; 8] = [819, 817, 925, 961, 1021, 1009, 997, 991];
 #[rustfmt::skip]
-#[cfg(feature = "big-table")]
+#[cfg(all(feature = "big-table", feature = "num-bigint"))]
 pub const CUBIC_RESIDUAL: [[u64; 16]; 8] = [
     [0x0000_0000_0800_0103, 0x2040_0008_0c00_0001, 0x4020_0002_0000_0000, 0x1000_0000_0100_0000, 0x0008_0000_8000_0010, 0x0600_0000_c080_0000, 0x0600_0000_0000_0000, 0x0000_0000_1030_0000, 0x0080_8000_0010_0001, 0x4020_0000_0800_0000, 0x2040_0000_0004_0000, 0x0008_0000_0301_0000, 0x0004_0800_0100_0000, 0,                  0,                  0                 ],
     [0x0000_2080_0800_0903, 0x2202_0840_4190_0803, 0x0080_1c10_0082_1020, 0x4080_1000_0300_0000, 0x0102_8220_2004_040c, 0x0800_0100_00c0_000c, 0x0040_6408_0000_4098, 0x0200_c000_0c00_0200, 0x0408_c080_8010_1105, 0x0400_0000_0300_0020, 0x0110_1021_0400_20e0, 0x0003_0040_2608_0841, 0x0001_0240_0040_0410, 0,                  0,                  0                 ],

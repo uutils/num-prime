@@ -1,9 +1,8 @@
 //! Backend implementations for integers
 
-use crate::{
-    tables::{CUBIC_MODULI, CUBIC_RESIDUAL, QUAD_MODULI, QUAD_RESIDUAL},
-    traits::{BitTest, ExactRoots},
-};
+#[cfg(feature = "num-bigint")]
+use crate::tables::{CUBIC_MODULI, CUBIC_RESIDUAL, QUAD_MODULI, QUAD_RESIDUAL};
+use crate::traits::{BitTest, ExactRoots};
 
 #[cfg(feature = "num-bigint")]
 use num_bigint::{BigInt, BigUint, ToBigInt};

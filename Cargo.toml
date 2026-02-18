@@ -18,10 +18,10 @@ readme = "README.md"
 [dependencies]
 num-integer = "0.1.44"
 num-traits = "0.2.14"
-num-modular = "0.5.0"
+num-modular = "0.6.1"
 bitvec = "1.0.0"
 rand = "0.8.4"
-lru = "0.12.2"
+lru = "0.16.3"
 either = "1.6.1"
 
 [dependencies.num-bigint]
@@ -33,7 +33,7 @@ features = ["rand"]
 default = ['big-table', 'big-int']
 big-table = []
 # TODO: use the new cargo feature to override the num-bigint option
-big-int = ['num-bigint', 'num-modular/num-bigint']
+big-int = ['num-modular/num-bigint', 'num-modular/num-traits', 'num-modular/num-integer']
 
 [workspace]
 members = [

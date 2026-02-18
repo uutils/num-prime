@@ -658,17 +658,17 @@ impl<T: Integer + Clone, R: Reducer<T> + Clone> ModularPow<&Self, &Self> for Min
     #[inline]
     fn powm(self, exp: &Self, m: &Self) -> Self::Output {
         Self(Right(match (self.0, &exp.0, &m.0) {
-            (Left(v), Left(e), Left(m)) => ReducedInt::new(v, m).pow(e.clone()),
+            (Left(v), Left(e), Left(m)) => ReducedInt::new(v, m).pow(&e.clone()),
             (Right(v), Left(e), Left(m)) => {
                 debug_assert!(&v.modulus() == m);
-                v.pow(e.clone())
+                v.pow(&e.clone())
             }
             (_, _, _) => unreachable!(),
         }))
     }
 }
 
-pub type SmallMint<T> = Mint<T, Montgomery<T, T>>;
+pub type SmallMint<T> = Mint<T, Montgomery<T>>;
 
 #[cfg(test)]
 mod tests {

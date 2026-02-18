@@ -671,10 +671,9 @@ mod tests {
 
     #[test]
     fn pb_factors_test() {
-        let pb = NaiveBuffer::new();
-
         #[cfg(feature = "num-bigint")]
         {
+            let pb = NaiveBuffer::new();
             let m131 = BigUint::from(2u8).pow(131) - 1u8; // m131/263 is a large prime
             let (fac, r) = pb.factors(m131, None);
             assert!(fac.len() == 2 && r.is_none());
