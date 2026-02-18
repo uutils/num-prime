@@ -4,6 +4,8 @@
 use crate::tables::{CUBIC_MODULI, CUBIC_RESIDUAL, QUAD_MODULI, QUAD_RESIDUAL};
 use crate::traits::{BitTest, ExactRoots};
 
+use num_integer::Roots;
+
 #[cfg(feature = "num-bigint")]
 use num_bigint::{BigInt, BigUint, ToBigInt};
 #[cfg(feature = "num-bigint")]
@@ -49,6 +51,18 @@ impl BitTest for BigUint {
 macro_rules! impl_exactroot_prim {
     ($($T:ty)*) => {$(
         impl ExactRoots for $T {
+            fn nth_root_exact(&self, n: u32) -> Option<Self> {
+                // For even roots of negative numbers, return None instead of panicking
+                if self < &0 && n % 2 == 0 {
+                    return None;
+                }
+                let r = self.nth_root(n);
+                if &r.clone().pow(n) == self {
+                    Some(r)
+                } else {
+                    None
+                }
+            }
             fn sqrt_exact(&self) -> Option<Self> {
                 if self < &0 { return None; }
                 let shift = self.trailing_zeros();
@@ -140,6 +154,25 @@ impl ExactRoots for BigUint {
 
 #[cfg(feature = "num-bigint")]
 impl ExactRoots for BigInt {
+    fn nth_root_exact(&self, n: u32) -> Option<Self> {
+        // For even roots of negative numbers, return None instead of panicking
+        if self.is_negative() && n % 2 == 0 {
+            return None;
+        }
+
+        // For odd roots, handle negative numbers by taking the root of the magnitude
+        // and then applying the sign
+        if self.is_negative() {
+            self.magnitude()
+                .nth_root_exact(n)
+                .and_then(|u| u.to_bigint())
+                .map(|v| -v)
+        } else {
+            self.magnitude()
+                .nth_root_exact(n)
+                .and_then(|u| u.to_bigint())
+        }
+    }
     fn sqrt_exact(&self) -> Option<Self> {
         self.to_biguint()
             .and_then(|u| u.sqrt_exact())
@@ -245,5 +278,80 @@ mod tests {
                 assert!(ExactRoots::sqrt_exact(&(x * y)).is_none());
             }
         }
+    }
+
+    #[test]
+    fn test_nth_root_exact_negative_even_root() {
+        // Test for issue #25: nth_root_exact(2) should return None for negative numbers
+        // instead of panicking
+        let result = (-1i32).nth_root_exact(2);
+        assert!(
+            result.is_none(),
+            "nth_root_exact(2) should return None for negative numbers"
+        );
+
+        // Test other negative numbers with even roots
+        let result = (-4i32).nth_root_exact(2);
+        assert!(
+            result.is_none(),
+            "nth_root_exact(2) should return None for negative numbers"
+        );
+
+        let result = (-8i32).nth_root_exact(4);
+        assert!(
+            result.is_none(),
+            "nth_root_exact(4) should return None for negative numbers"
+        );
+
+        // Test that odd roots of negative numbers still work
+        let result = (-8i32).nth_root_exact(3);
+        assert_eq!(
+            result,
+            Some(-2),
+            "nth_root_exact(3) should work for negative numbers"
+        );
+
+        let result = (-27i32).nth_root_exact(3);
+        assert_eq!(
+            result,
+            Some(-3),
+            "nth_root_exact(3) should work for negative numbers"
+        );
+    }
+
+    #[test]
+    fn test_nth_root_exact_all_signed_types() {
+        // Test all signed integer types with even roots of negative numbers
+        assert_eq!((-1i8).nth_root_exact(2), None);
+        assert_eq!((-1i16).nth_root_exact(2), None);
+        assert_eq!((-1i32).nth_root_exact(2), None);
+        assert_eq!((-1i64).nth_root_exact(2), None);
+        assert_eq!((-1i128).nth_root_exact(2), None);
+        assert_eq!((-1isize).nth_root_exact(2), None);
+
+        // Test odd roots work correctly
+        assert_eq!((-8i32).nth_root_exact(3), Some(-2));
+        assert_eq!((-32i32).nth_root_exact(5), Some(-2));
+
+        // Test positive cases still work
+        assert_eq!(16i32.nth_root_exact(4), Some(2));
+        assert_eq!(32i32.nth_root_exact(5), Some(2));
+    }
+
+    #[test]
+    #[cfg(feature = "num-bigint")]
+    fn test_nth_root_exact_bigint_negative() {
+        use num_bigint::BigInt;
+
+        // Test even roots return None for negative BigInt
+        assert_eq!(BigInt::from(-1).nth_root_exact(2), None);
+        assert_eq!(BigInt::from(-16).nth_root_exact(4), None);
+
+        // Test odd roots work for negative BigInt
+        assert_eq!(BigInt::from(-8).nth_root_exact(3), Some(BigInt::from(-2)));
+        assert_eq!(
+            BigInt::from(-1000000000i64).nth_root_exact(3),
+            Some(BigInt::from(-1000i32))
+        );
     }
 }
