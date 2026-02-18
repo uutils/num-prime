@@ -13,12 +13,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
-
-      - run: cargo build --all-features
       - run: cargo test
       - run: cargo test --all-features
       - run: cargo test --features big-table
@@ -36,12 +30,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
-          components: clippy
-
       - run: cargo clippy -- -D warnings
 
   rustfmt:
@@ -54,12 +42,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
-          components: rustfmt
-
       - run: cargo fmt --check --all
 
   coverage:
