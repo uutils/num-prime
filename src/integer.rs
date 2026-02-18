@@ -34,12 +34,12 @@ impl BitTest for BigUint {
         self.bit(position as u64)
     }
     fn bits(&self) -> usize {
-        BigUint::bits(&self) as usize
+        self.bits() as usize
     }
     #[inline]
     fn trailing_zeros(&self) -> usize {
-        match BigUint::trailing_zeros(&self) {
-            Some(a) => a as usize,
+        match self.trailing_zeros() {
+            Some(zeros) => zeros as usize,
             None => 0,
         }
     }
