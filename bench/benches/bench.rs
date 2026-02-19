@@ -8,6 +8,8 @@ use num_bigint::RandBigInt;
 use num_prime::{nt_funcs, RandPrime};
 #[cfg(feature = "num-primes")]
 use num_primes::{Generator, Verification};
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 
 #[cfg(target_arch = "x86_64")]
 use number_theory::NumberTheory;
@@ -51,7 +53,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
 
     ////// 256 bits Bigint /////
 
-    let mut rng = rand::thread_rng();
+    let mut rng = StdRng::seed_from_u64(42);
     let numbers: Vec<_> = repeat_with(|| rng.gen_biguint(256)).take(32).collect();
 
     let mut group = c.benchmark_group("primality check (u256)");
@@ -117,7 +119,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
 
     ////// 2048 bits Bigint /////
 
-    let mut rng = rand::thread_rng();
+    let mut rng = StdRng::seed_from_u64(123);
     let numbers: Vec<_> = repeat_with(|| rng.gen_biguint(2048)).take(8).collect();
 
     let mut group = c.benchmark_group("primality check (u2048)");
@@ -215,7 +217,7 @@ pub fn bench_prime_gen(c: &mut Criterion) {
     let mut group = c.benchmark_group("prime generation (256 bits)");
     group.sample_size(10).sampling_mode(SamplingMode::Flat);
 
-    let mut rng = rand::thread_rng();
+    let mut rng = StdRng::seed_from_u64(256);
     group.bench_function("num-prime (this crate)", |b| {
         b.iter(|| -> num_bigint::BigUint { rng.gen_prime(256, None) })
     });
@@ -226,7 +228,7 @@ pub fn bench_prime_gen(c: &mut Criterion) {
     let mut group = c.benchmark_group("safe prime generation (256 bits)");
     group.sample_size(10).sampling_mode(SamplingMode::Flat);
 
-    let mut rng = rand::thread_rng();
+    let mut rng = StdRng::seed_from_u64(512);
     group.bench_function("num-prime (this crate)", |b| {
         b.iter(|| -> num_bigint::BigUint { rng.gen_safe_prime(256) })
     });
