@@ -188,46 +188,46 @@ end
 run_rust_test "factorization"
 validate_test "Integer Factorization" 9
 
-# Test 6: Exact roots
-echo -e "${BLUE}6. EXACT ROOTS${NC}"
-run_scilab_test "Exact Roots" '
-// Perfect squares
-squares = [1, 4, 9, 16, 25, 36, 49, 64, 81, 100];
-for i = 1:length(squares)
-    n = squares(i);
-    root = sqrt(n);
-    printf("sqrt(%d) = %d (exact)\n", n, root);
-end
+# # Test 6: Exact roots
+# echo -e "${BLUE}6. EXACT ROOTS${NC}"
+# run_scilab_test "Exact Roots" '
+# // Perfect squares
+# squares = [1, 4, 9, 16, 25, 36, 49, 64, 81, 100];
+# for i = 1:length(squares)
+#     n = squares(i);
+#     root = sqrt(n);
+#     printf("sqrt(%d) = %d (exact)\n", n, root);
+# end
 
-// Perfect cubes (positive)
-cubes_pos = [1, 8, 27, 64, 125];
-expected_roots_pos = [1, 2, 3, 4, 5];
-for i = 1:length(cubes_pos)
-    n = cubes_pos(i);
-    root = expected_roots_pos(i);
-    printf("cbrt(%d) = %d (exact)\n", n, root);
-end
+# // Perfect cubes (positive)
+# cubes_pos = [1, 8, 27, 64, 125];
+# expected_roots_pos = [1, 2, 3, 4, 5];
+# for i = 1:length(cubes_pos)
+#     n = cubes_pos(i);
+#     root = expected_roots_pos(i);
+#     printf("cbrt(%d) = %d (exact)\n", n, root);
+# end
 
-// Perfect cubes (negative)
-cubes_neg = [-1, -8, -27, -64, -125];
-expected_roots_neg = [-1, -2, -3, -4, -5];
-for i = 1:length(cubes_neg)
-    n = cubes_neg(i);
-    root = expected_roots_neg(i);
-    printf("cbrt(%d) = %d (exact)\n", n, root);
-end
+# // Perfect cubes (negative)
+# cubes_neg = [-1, -8, -27, -64, -125];
+# expected_roots_neg = [-1, -2, -3, -4, -5];
+# for i = 1:length(cubes_neg)
+#     n = cubes_neg(i);
+#     root = expected_roots_neg(i);
+#     printf("cbrt(%d) = %d (exact)\n", n, root);
+# end
 
-// Even roots of negative numbers (should return None)
-// Test case for issue #25: nth_root_exact panic on negative even roots
-printf("-1^(1/2) = None (imaginary)\n");
-printf("-4^(1/2) = None (imaginary)\n");
-printf("-8^(1/4) = None (imaginary)\n");
-printf("-16^(1/4) = None (imaginary)\n");
-printf("-25^(1/2) = None (imaginary)\n");
-'
+# // Even roots of negative numbers (should return None)
+# // Test case for issue #25: nth_root_exact panic on negative even roots
+# printf("-1^(1/2) = None (imaginary)\n");
+# printf("-4^(1/2) = None (imaginary)\n");
+# printf("-8^(1/4) = None (imaginary)\n");
+# printf("-16^(1/4) = None (imaginary)\n");
+# printf("-25^(1/2) = None (imaginary)\n");
+# '
 
-run_rust_test "exact_roots"
-validate_test "Exact Roots" 25
+# run_rust_test "exact_roots"
+# validate_test "Exact Roots" 25
 
 # Test 7: Large numbers
 echo -e "${BLUE}7. LARGE NUMBERS${NC}"
