@@ -156,7 +156,7 @@ impl ExactRoots for BigUint {
 impl ExactRoots for BigInt {
     fn nth_root_exact(&self, n: u32) -> Option<Self> {
         // For even roots of negative numbers, return None instead of panicking
-        if self.is_negative() && n % 2 == 0 {
+        if self.is_negative() && n.is_multiple_of(2) {
             return None;
         }
 
