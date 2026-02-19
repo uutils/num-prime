@@ -62,8 +62,8 @@ jobs:
       run: |
         ## VARs setup
         outputs() { step_id="vars"; for var in "$@" ; do echo steps.${step_id}.outputs.${var}="${!var}"; echo "${var}=${!var}" >> $GITHUB_OUTPUT; done; }
-        # Avoid nightly toolchain for reproducibility
-        echo RUSTC_BOOTSTRAP=1 >> "${GITHUB_ENV}"
+        # Emulate a nightly toolchain
+        echo "RUSTC_BOOTSTRAP=1" >> "${GITHUB_ENV}"
         # * specify gnu-type TOOLCHAIN for windows; `grcov` requires gnu-style code coverage data files
         case ${{ matrix.job.os }} in windows-*) TOOLCHAIN="$TOOLCHAIN-x86_64-pc-windows-gnu" ;; esac;
         # * use requested TOOLCHAIN if specified
