@@ -55,6 +55,18 @@ jobs:
       - uses: actions/checkout@v6
       - run: cargo fmt --check --all
 
+  mathematical_validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Scilab CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y scilab-cli
+      - run: cargo build --release
+      - name: Compare implementation with Scilab
+        run: ./util/validate_with_scilab.sh
+
   coverage:
     name: Code Coverage
     runs-on: ${{ matrix.job.os }}
