@@ -10,6 +10,8 @@ use num_prime::{nt_funcs, RandPrime};
 use num_primes::{Generator, Verification};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
+use rand_core::SeedableRng as SeedableRng2;
 
 #[cfg(target_arch = "x86_64")]
 use number_theory::NumberTheory;
@@ -221,8 +223,12 @@ pub fn bench_prime_gen(c: &mut Criterion) {
     group.bench_function("num-prime (this crate)", |b| {
         b.iter(|| -> num_bigint::BigUint { rng.gen_prime(256, None) })
     });
+    // Note: num-primes uses thread_rng() internally, so this benchmark is not deterministic
     group.bench_function("num-primes", |b| b.iter(|| Generator::new_prime(256)));
-    group.bench_function("glass_pumpkin", |b| b.iter(|| gprime::new(256)));
+    let mut rng_gp = ChaCha8Rng::seed_from_u64(257);
+    group.bench_function("glass_pumpkin", |b| {
+        b.iter(|| gprime::from_rng(256, &mut rng_gp))
+    });
     group.finish();
 
     let mut group = c.benchmark_group("safe prime generation (256 bits)");
@@ -232,8 +238,12 @@ pub fn bench_prime_gen(c: &mut Criterion) {
     group.bench_function("num-prime (this crate)", |b| {
         b.iter(|| -> num_bigint::BigUint { rng.gen_safe_prime(256) })
     });
+    // Note: num-primes uses thread_rng() internally, so this benchmark is not deterministic
     group.bench_function("num-primes", |b| b.iter(|| Generator::safe_prime(256)));
-    group.bench_function("glass_pumpkin", |b| b.iter(|| safe_gprime::new(256)));
+    let mut rng_gp = ChaCha8Rng::seed_from_u64(513);
+    group.bench_function("glass_pumpkin", |b| {
+        b.iter(|| safe_gprime::from_rng(256, &mut rng_gp))
+    });
     group.finish();
 }
 
