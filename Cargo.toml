@@ -33,7 +33,7 @@ features = ["rand"]
 default = ['big-table', 'big-int']
 big-table = []
 # TODO: use the new cargo feature to override the num-bigint option
-big-int = ['num-modular/num-bigint', 'num-modular/num-traits', 'num-modular/num-integer']
+big-int = ['num-bigint', 'num-modular/num-bigint', 'num-modular/num-traits', 'num-modular/num-integer']
 
 [workspace]
 members = [

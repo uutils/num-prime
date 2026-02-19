@@ -9,8 +9,8 @@ name = "bench"
 harness = false
 
 [dependencies]
-num-bigint = "0.4"
-num-prime = { path = ".." }
+num-bigint = { version = "0.4", features = ["rand"] }
+num-prime = { path = "..", features = ["big-int"] }
 criterion = { version = "4.3.0", package = "codspeed-criterion-compat" }
 rand = "0.8"
 
