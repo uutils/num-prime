@@ -170,7 +170,7 @@ where
 /// the `mul_target` argument. The multiplier can be choosen from `SQUFOF_MULTIPLIERS`, or other square-free odd numbers.
 /// The returned values are the factor and the count of passed iterations.
 ///
-/// The max iteration can be choosed as 2*n^(1/4), based on Theorem 4.22 from [1].
+/// The max iteration can be choosed as 2*n^(1/4), based on Theorem 4.22 from \[1\].
 ///
 /// # Examples
 ///
@@ -182,9 +182,9 @@ where
 /// ```
 ///
 /// Reference: Gower, J., & Wagstaff Jr, S. (2008). Square form factorization.
-/// In [1] [Mathematics of Computation](https://homes.cerias.purdue.edu/~ssw/gowerthesis804/wthe.pdf)
-/// or [2] [his thesis](https://homes.cerias.purdue.edu/~ssw/gowerthesis804/wthe.pdf)
-/// The code is from [3] [Rosetta code](https://rosettacode.org/wiki/Square_form_factorization)
+/// In \[1\] [Mathematics of Computation](https://homes.cerias.purdue.edu/~ssw/gowerthesis804/wthe.pdf)
+/// or \[2\] [his thesis](https://homes.cerias.purdue.edu/~ssw/gowerthesis804/wthe.pdf)
+/// The code is from \[3\] [Rosetta code](https://rosettacode.org/wiki/Square_form_factorization)
 pub fn squfof<T: Integer + NumRef + Clone + ExactRoots + std::fmt::Debug>(
     target: &T,
     mul_target: T,

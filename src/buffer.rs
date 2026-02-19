@@ -107,7 +107,7 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
 
     /// Factorize an integer.
     ///
-    /// For targets smaller than 2^64, the efficient [factorize64] will be used, otherwise
+    /// For targets smaller than 2^64, the efficient [`crate::nt_funcs::factorize64`] will be used, otherwise
     /// the primality test and factorization algorithms can be specified by the `config` argument.
     ///
     /// The factorization result consists of two parts. The first is a map from prime factors to their exponents.
@@ -178,7 +178,7 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
 
     /// Factorize an integer until all prime factors are found.
     ///
-    /// This function will try to call [factors] function repeatedly until the target
+    /// This function will try to call [`PrimeBufferExt::factors`] function repeatedly until the target
     /// is fully factorized.
     fn factorize<T: PrimalityBase>(&self, target: T) -> BTreeMap<T, usize>
     where

@@ -12,7 +12,7 @@ use num_traits::{FromPrimitive, Num, One, Pow, ToPrimitive, Zero};
 
 use crate::{BitTest, ExactRoots};
 
-/// Integer with fast modular arithmetics support, based on [`MontgomeryInt`] under the hood
+/// Integer with fast modular arithmetics support, based on [`num_modular::MontgomeryInt`] under the hood
 ///
 /// This struct only designed to be working with this crate. Most binary operators assume that
 /// the modulus of two operands (when in montgomery form) are the same, and most implicit conversions
