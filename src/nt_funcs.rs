@@ -37,6 +37,18 @@ use crate::tables::{MILLER_RABIN_BASE32, MILLER_RABIN_BASE64};
 /// Fast primality test on a u64 integer. It's based on
 /// deterministic Miller-rabin tests. If target is larger than 2^64 or more
 /// controlled primality tests are desired, please use [is_prime()]
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::is_prime64;
+///
+/// assert!(is_prime64(2));
+/// assert!(is_prime64(13));
+/// assert!(!is_prime64(1));
+/// assert!(!is_prime64(15));
+/// assert!(is_prime64(6_469_693_333));
+/// ```
 #[cfg(not(feature = "big-table"))]
 pub fn is_prime64(target: u64) -> bool {
     // shortcuts
@@ -65,6 +77,18 @@ pub fn is_prime64(target: u64) -> bool {
 /// Very fast primality test on a u64 integer is a prime number. It's based on
 /// deterministic Miller-rabin tests with hashing. if target is larger than 2^64 or more controlled
 /// primality tests are desired, please use [`is_prime()`]
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::is_prime64;
+///
+/// assert!(is_prime64(2));
+/// assert!(is_prime64(13));
+/// assert!(!is_prime64(1));
+/// assert!(!is_prime64(15));
+/// assert!(is_prime64(6_469_693_333));
+/// ```
 #[cfg(feature = "big-table")]
 #[must_use]
 pub fn is_prime64(target: u64) -> bool {
@@ -145,6 +169,20 @@ fn is_prime64_miller(target: u64) -> bool {
 ///
 /// The factorization can be quite faster under 2^64 because: 1) faster and deterministic primality check,
 /// 2) efficient montgomery multiplication implementation of u64
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::factorize64;
+/// use std::collections::BTreeMap;
+/// use std::iter::FromIterator;
+///
+/// let fac = factorize64(4095);
+/// assert_eq!(fac, BTreeMap::from_iter([(3, 2), (5, 1), (7, 1), (13, 1)]));
+///
+/// let fac = factorize64(123_456_789);
+/// assert_eq!(fac, BTreeMap::from_iter([(3, 2), (3607, 1), (3803, 1)]));
+/// ```
 #[must_use]
 pub fn factorize64(target: u64) -> BTreeMap<u64, usize> {
     // TODO: improve factorization performance
@@ -321,6 +359,20 @@ pub(crate) fn factorize64_advanced(cofactors: &[(u64, usize)]) -> Vec<(u64, usiz
 
 /// Fast integer factorization on a u128 target. It's based on a selection of factorization methods.
 /// if target is larger than 2^128 or more controlled primality tests are desired, please use [`factors()`][crate::buffer::PrimeBufferExt::factors].
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::factorize128;
+/// use std::collections::BTreeMap;
+/// use std::iter::FromIterator;
+///
+/// let fac = factorize128(4095);
+/// assert_eq!(fac, BTreeMap::from_iter([(3, 2), (5, 1), (7, 1), (13, 1)]));
+///
+/// let fac = factorize128(8167u128.pow(3));
+/// assert_eq!(fac, BTreeMap::from_iter([(8167, 3)]));
+/// ```
 #[must_use]
 pub fn factorize128(target: u128) -> BTreeMap<u128, usize> {
     // shortcut for u64
@@ -500,7 +552,17 @@ pub(crate) fn factorize128_advanced(cofactors: &[(u128, usize)]) -> Vec<(u128, u
 
 /// Primality test
 ///
-/// This function re-exports [`PrimeBufferExt::is_prime()`][crate::buffer::PrimeBufferExt::is_prime()] with a new [`NaiveBuffer`] distance
+/// This function re-exports [`PrimeBufferExt::is_prime()`][crate::buffer::PrimeBufferExt::is_prime()] with a new [`NaiveBuffer`] instance
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::is_prime;
+///
+/// assert!(is_prime(&2u64, None).probably());
+/// assert!(is_prime(&13u64, None).probably());
+/// assert!(!is_prime(&15u64, None).probably());
+/// ```
 pub fn is_prime<T: PrimalityBase>(target: &T, config: Option<PrimalityTestConfig>) -> Primality
 where
     for<'r> &'r T: PrimalityRefBase<T>,
@@ -511,6 +573,18 @@ where
 /// Faillible factorization
 ///
 /// This function re-exports [`PrimeBufferExt::factors()`][crate::buffer::PrimeBufferExt::factors()] with a new [`NaiveBuffer`] instance
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::factors;
+///
+/// let (fac, unfactored) = factors(60u64, None);
+/// assert_eq!(fac[&2], 2);
+/// assert_eq!(fac[&3], 1);
+/// assert_eq!(fac[&5], 1);
+/// assert!(unfactored.is_none());
+/// ```
 pub fn factors<T: PrimalityBase>(
     target: T,
     config: Option<FactorizationConfig>,
@@ -524,6 +598,17 @@ where
 /// Infaillible factorization
 ///
 /// This function re-exports [`PrimeBufferExt::factorize()`][crate::buffer::PrimeBufferExt::factorize()] with a new [`NaiveBuffer`] instance
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::factorize;
+///
+/// let fac = factorize(60u64);
+/// assert_eq!(fac[&2], 2);
+/// assert_eq!(fac[&3], 1);
+/// assert_eq!(fac[&5], 1);
+/// ```
 pub fn factorize<T: PrimalityBase>(target: T) -> BTreeMap<T, usize>
 where
     for<'r> &'r T: PrimalityRefBase<T>,
@@ -534,6 +619,16 @@ where
 /// Get a list of primes under a limit
 ///
 /// This function re-exports [`NaiveBuffer::primes()`] and collect result as a vector.
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::primes;
+///
+/// assert_eq!(primes(20), vec![2, 3, 5, 7, 11, 13, 17, 19]);
+/// assert_eq!(primes(2), vec![2]);
+/// assert!(primes(1).is_empty());
+/// ```
 #[must_use]
 pub fn primes(limit: u64) -> Vec<u64> {
     NaiveBuffer::new().into_primes(limit).collect()
@@ -542,6 +637,15 @@ pub fn primes(limit: u64) -> Vec<u64> {
 /// Get the first n primes
 ///
 /// This function re-exports [`NaiveBuffer::nprimes()`] and collect result as a vector.
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::nprimes;
+///
+/// assert_eq!(nprimes(5), vec![2, 3, 5, 7, 11]);
+/// assert!(nprimes(0).is_empty());
+/// ```
 #[must_use]
 pub fn nprimes(count: usize) -> Vec<u64> {
     NaiveBuffer::new().into_nprimes(count).collect()
@@ -550,6 +654,15 @@ pub fn nprimes(count: usize) -> Vec<u64> {
 /// Calculate and return the prime π function
 ///
 /// This function re-exports [`NaiveBuffer::prime_pi()`]
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::prime_pi;
+///
+/// assert_eq!(prime_pi(10), 4);  // primes: 2, 3, 5, 7
+/// assert_eq!(prime_pi(100), 25);
+/// ```
 #[must_use]
 pub fn prime_pi(limit: u64) -> u64 {
     NaiveBuffer::new().prime_pi(limit)
@@ -558,12 +671,34 @@ pub fn prime_pi(limit: u64) -> u64 {
 /// Get the n-th prime (n counts from 1).
 ///
 /// This function re-exports [`NaiveBuffer::nth_prime()`]
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::nth_prime;
+///
+/// assert_eq!(nth_prime(1), 2);
+/// assert_eq!(nth_prime(5), 11);
+/// assert_eq!(nth_prime(25), 97);
+/// ```
 #[must_use]
 pub fn nth_prime(n: u64) -> u64 {
     NaiveBuffer::new().nth_prime(n)
 }
 
 /// Calculate the primorial function
+///
+/// Returns the product of the first `n` primes.
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::primorial;
+///
+/// assert_eq!(primorial::<u64>(1), 2);       // 2
+/// assert_eq!(primorial::<u64>(3), 30);      // 2 * 3 * 5
+/// assert_eq!(primorial::<u64>(4), 210);     // 2 * 3 * 5 * 7
+/// ```
 #[must_use]
 pub fn primorial<T: PrimalityBase + std::iter::Product>(n: usize) -> T {
     NaiveBuffer::new()
@@ -578,6 +713,18 @@ pub fn primorial<T: PrimalityBase + std::iter::Product>(n: usize) -> T {
 /// If the input integer is very hard to factorize, it's better to use
 /// the [`factors()`] function to control how the factorization is done, and then call
 /// [`moebius_factorized()`].
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::moebius;
+///
+/// assert_eq!(moebius(&1u64), 1);    // μ(1) = 1
+/// assert_eq!(moebius(&2u64), -1);   // μ(p) = -1
+/// assert_eq!(moebius(&4u64), 0);    // μ(p²) = 0
+/// assert_eq!(moebius(&30u64), -1);  // μ(2·3·5) = -1 (odd number of prime factors)
+/// assert_eq!(moebius(&6u64), 1);    // μ(2·3) = 1 (even number of prime factors)
+/// ```
 ///
 /// # Panics
 /// if the factorization failed on target.
@@ -621,6 +768,16 @@ where
 
 /// This function calculate the Möbius `μ(n)` function given the factorization
 /// result of `n`
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::{moebius_factorized, factorize};
+///
+/// assert_eq!(moebius_factorized(&factorize(30u64)), -1); // 30 = 2·3·5
+/// assert_eq!(moebius_factorized(&factorize(12u64)), 0);  // 12 = 2²·3
+/// assert_eq!(moebius_factorized(&factorize(6u64)), 1);   // 6 = 2·3
+/// ```
 #[must_use]
 pub fn moebius_factorized<T>(factors: &BTreeMap<T, usize>) -> i8 {
     if factors.values().any(|exp| exp > &1) {
@@ -634,6 +791,16 @@ pub fn moebius_factorized<T>(factors: &BTreeMap<T, usize>) -> i8 {
 
 /// Tests if the integer doesn't have any square number factor.
 ///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::is_square_free;
+///
+/// assert!(is_square_free(&30u64));   // 30 = 2·3·5
+/// assert!(!is_square_free(&12u64));  // 12 = 2²·3
+/// assert!(is_square_free(&1u64));
+/// ```
+///
 /// # Panics
 /// if the factorization failed on target.
 pub fn is_square_free<T: PrimalityBase>(target: &T) -> bool
@@ -645,6 +812,16 @@ where
 
 /// Returns the estimated bounds (low, high) of prime π function, such that
 /// low <= π(target) <= high
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::prime_pi_bounds;
+///
+/// let (lo, hi) = prime_pi_bounds(&1_000_000u64);
+/// // π(1_000_000) = 78498
+/// assert!(lo <= 78498 && 78498 <= hi);
+/// ```
 ///
 /// # Reference:
 /// - \[1] Dusart, Pierre. "Estimates of Some Functions Over Primes without R.H."
@@ -717,6 +894,16 @@ pub fn prime_pi_bounds<T: ToPrimitive + FromPrimitive>(target: &T) -> (T, T) {
 
 /// Returns the estimated inclusive bounds (low, high) of the n-th prime. If the result
 /// is larger than maximum of `T`, [None] will be returned.
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::nth_prime_bounds;
+///
+/// let (lo, hi) = nth_prime_bounds(&10_000u64).unwrap();
+/// // The 10000th prime is 104729
+/// assert!(lo <= 104729 && 104729 <= hi);
+/// ```
 ///
 /// # Reference:
 /// - \[1] Dusart, Pierre. "Estimates of Some Functions Over Primes without R.H."
@@ -806,6 +993,17 @@ pub fn nth_prime_bounds<T: ToPrimitive + FromPrimitive>(target: &T) -> Option<(T
 
 /// Test if the target is a safe prime under [Sophie German's definition](https://en.wikipedia.org/wiki/Safe_and_Sophie_Germain_primes). It will use the
 /// [strict primality test configuration][FactorizationConfig::strict()].
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::is_safe_prime;
+///
+/// assert!(is_safe_prime(&5u64).probably());   // (5-1)/2 = 2, prime
+/// assert!(is_safe_prime(&7u64).probably());   // (7-1)/2 = 3, prime
+/// assert!(is_safe_prime(&23u64).probably());  // (23-1)/2 = 11, prime
+/// assert!(!is_safe_prime(&13u64).probably()); // (13-1)/2 = 6, not prime
+/// ```
 pub fn is_safe_prime<T: PrimalityBase>(target: &T) -> Primality
 where
     for<'r> &'r T: PrimalityRefBase<T>,
@@ -826,6 +1024,15 @@ where
 
 /// Find the first prime number larger than `target`. If the result causes an overflow,
 /// then [None] will be returned
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::next_prime;
+///
+/// assert_eq!(next_prime(&13u32, None), Some(17));
+/// assert_eq!(next_prime(&1000u32, None), Some(1009));
+/// ```
 #[cfg(not(feature = "big-table"))]
 pub fn next_prime<T: PrimalityBase + CheckedAdd>(
     target: &T,
@@ -864,6 +1071,15 @@ where
 
 /// Find the first prime number larger than `target`. If the result causes an overflow,
 /// then [None] will be returned
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::next_prime;
+///
+/// assert_eq!(next_prime(&13u32, None), Some(17));
+/// assert_eq!(next_prime(&1000u32, None), Some(1009));
+/// ```
 #[cfg(feature = "big-table")]
 pub fn next_prime<T: PrimalityBase + CheckedAdd>(
     target: &T,
@@ -900,6 +1116,16 @@ where
 
 /// Find the first prime number smaller than `target`. If target is less than 3, then [None]
 /// will be returned.
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::prev_prime;
+///
+/// assert_eq!(prev_prime(&13u32, None), Some(11));
+/// assert_eq!(prev_prime(&1000u32, None), Some(997));
+/// assert_eq!(prev_prime(&2u32, None), None);
+/// ```
 #[cfg(not(feature = "big-table"))]
 pub fn prev_prime<T: PrimalityBase>(target: &T, config: Option<PrimalityTestConfig>) -> Option<T>
 where
@@ -933,6 +1159,16 @@ where
 
 /// Find the first prime number smaller than `target`. If target is less than 3, then [None]
 /// will be returned.
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::prev_prime;
+///
+/// assert_eq!(prev_prime(&13u32, None), Some(11));
+/// assert_eq!(prev_prime(&1000u32, None), Some(997));
+/// assert_eq!(prev_prime(&2u32, None), None);
+/// ```
 #[cfg(feature = "big-table")]
 pub fn prev_prime<T: PrimalityBase>(target: &T, config: Option<PrimalityTestConfig>) -> Option<T>
 where
@@ -969,6 +1205,16 @@ where
 }
 
 /// Estimate the value of prime π() function by averaging the estimated bounds.
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::{prime_pi_est, prime_pi_bounds};
+///
+/// let est = prime_pi_est(&1_000_000u64);
+/// let (lo, hi) = prime_pi_bounds(&1_000_000u64);
+/// assert!(lo <= est && est <= hi);
+/// ```
 #[cfg(not(feature = "big-table"))]
 pub fn prime_pi_est<T: Num + ToPrimitive + FromPrimitive>(target: &T) -> T {
     let (lo, hi) = prime_pi_bounds(target);
@@ -979,6 +1225,16 @@ pub fn prime_pi_est<T: Num + ToPrimitive + FromPrimitive>(target: &T) -> T {
 /// error is roughly of scale O(sqrt(x)log(x)).
 ///
 /// Reference: <https://primes.utm.edu/howmany.html#better>
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::{prime_pi_est, prime_pi_bounds};
+///
+/// let est = prime_pi_est(&1_000_000u64);
+/// let (lo, hi) = prime_pi_bounds(&1_000_000u64);
+/// assert!(lo <= est && est <= hi);
+/// ```
 #[cfg(feature = "big-table")]
 pub fn prime_pi_est<T: ToPrimitive + FromPrimitive>(target: &T) -> T {
     // shortcut
@@ -1013,6 +1269,16 @@ pub fn prime_pi_est<T: ToPrimitive + FromPrimitive>(target: &T) -> T {
 
 /// Estimate the value of nth prime by bisecting on [`prime_pi_est`].
 /// If the result is larger than maximum of `T`, [None] will be returned.
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::nt_funcs::{nth_prime_est, nth_prime_bounds};
+///
+/// let est = nth_prime_est(&10_000u64).unwrap();
+/// let (lo, hi) = nth_prime_bounds(&10_000u64).unwrap();
+/// assert!(lo <= est && est <= hi);
+/// ```
 pub fn nth_prime_est<T: ToPrimitive + FromPrimitive + Num + PartialOrd>(target: &T) -> Option<T>
 where
     for<'r> &'r T: RefNum<T>,

@@ -19,6 +19,19 @@ use std::collections::BTreeMap;
 /// The parameter limit additionally sets the maximum of primes to be tried.
 /// The residual will be Ok(1) or Ok(p) if fully factored.
 ///
+/// # Examples
+///
+/// ```
+/// use num_prime::factor::trial_division;
+///
+/// let primes = vec![2, 3, 5, 7, 11, 13];
+/// let (factors, residual) = trial_division(primes.into_iter(), 60u64, None);
+/// assert_eq!(factors[&2], 2);
+/// assert_eq!(factors[&3], 1);
+/// assert_eq!(factors[&5], 1);
+/// assert!(residual.is_ok());
+/// ```
+///
 /// TODO: implement fast check for small primes with `BigInts` in the precomputed table, and skip them in this function
 pub fn trial_division<
     I: Iterator<Item = u64>,
@@ -69,6 +82,15 @@ where
 /// Find factors using Pollard's rho algorithm with Brent's loop detection algorithm
 ///
 /// The returned values are the factor and the count of passed iterations.
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::factor::pollard_rho;
+///
+/// let (factor, _iterations) = pollard_rho(&8051u16, 2, 1, 100);
+/// assert_eq!(factor, Some(97));  // 8051 = 83 × 97
+/// ```
 pub fn pollard_rho<
     T: Integer
         + FromPrimitive
@@ -149,6 +171,15 @@ where
 /// The returned values are the factor and the count of passed iterations.
 ///
 /// The max iteration can be choosed as 2*n^(1/4), based on Theorem 4.22 from [1].
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::factor::squfof;
+///
+/// let (factor, _iterations) = squfof(&11111u32, 11111u32, 100);
+/// assert_eq!(factor, Some(41));  // 11111 = 41 × 271
+/// ```
 ///
 /// Reference: Gower, J., & Wagstaff Jr, S. (2008). Square form factorization.
 /// In [1] [Mathematics of Computation](https://homes.cerias.purdue.edu/~ssw/gowerthesis804/wthe.pdf)
@@ -278,6 +309,15 @@ pub const SQUFOF_MULTIPLIERS: [u16; 38] = [
 ///
 /// The one line factorization algorithm is especially good at factoring semiprimes with form pq,
 /// where p = `next_prime(c^a+d1`), p = `next_prime(c^b+d2`), a and b are close, and c, d1, d2 are small integers.
+///
+/// # Examples
+///
+/// ```
+/// use num_prime::factor::one_line;
+///
+/// let (factor, _iterations) = one_line(&11111u32, 11111u32, 100);
+/// assert_eq!(factor, Some(271));  // 11111 = 41 × 271
+/// ```
 ///
 /// Reference: Hart, W. B. (2012). A one line factoring algorithm. Journal of the Australian Mathematical Society, 92(1), 61-69. doi:10.1017/S1446788712000146
 // TODO: add multipliers preset for one_line method?
