@@ -506,6 +506,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "machine-prime"
+version = "1.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb527149da02aead52137cbfcd7435921329ab38a67ee877cdf95bcd0f1da1d8"
+
+[[package]]
 name = "memchr"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -664,9 +670,12 @@ dependencies = [
 
 [[package]]
 name = "number-theory"
-version = "0.0.6"
+version = "0.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57bc4f91f6551203ba762815de0810e535fe07fadfc4050c3e85827867482e65"
+checksum = "cf23a7d29569a4210506f7cb8b18d34e6cd9c97f26b869fa10c47be2af7c7761"
+dependencies = [
+ "machine-prime",
+]
 
 [[package]]
 name = "once_cell"
