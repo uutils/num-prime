@@ -74,6 +74,7 @@ mod primality;
 mod rand;
 mod tables;
 mod traits;
+mod util;
 
 pub use traits::*;
 pub mod detail {
