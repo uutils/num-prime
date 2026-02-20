@@ -472,7 +472,7 @@ mod tests {
         let result = one_line(&n, n * 480, 100);
         assert!(result.0.is_some());
         let f = result.0.unwrap();
-        assert!(n.is_multiple_of(f) && f > 1 && f < n);
+        assert!(n % f == 0 && f > 1 && f < n);
     }
 
     // --- trial_division with limit=None (no limit path) ---
@@ -548,7 +548,7 @@ mod tests {
             for offset in [1u32, 2, 3, 5, 7] {
                 let (result, _) = pollard_rho(&target, start, offset, 10000);
                 if let Some(f) = result {
-                    assert!(target.is_multiple_of(f) && f > 1 && f < target);
+                    assert!(target % f == 0 && f > 1 && f < target);
                 }
             }
         }

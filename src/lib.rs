@@ -62,6 +62,8 @@
 //!   could improve the speed of various functions with the cost of larger memory footprint.
 //!
 
+#![allow(clippy::redundant_clone)]
+
 pub mod buffer;
 pub mod factor;
 pub mod nt_funcs;

@@ -115,7 +115,7 @@ impl ExactRoots for BigUint {
 
         // check mod 2
         let shift = self.trailing_zeros().unwrap();
-        if !shift.is_multiple_of(3) {
+        if shift % 3 != 0 {
             return None;
         }
 

@@ -347,7 +347,7 @@ pub(crate) fn factorize64_advanced(cofactors: &[(u64, usize)]) -> Vec<(u64, usiz
             i += 1;
 
             // increase max iterations after trying all methods
-            if i.is_multiple_of(NMETHODS) {
+            if i % NMETHODS == 0 {
                 max_iter_ratio *= 2;
             }
         };
@@ -523,7 +523,7 @@ pub(crate) fn factorize128_advanced(cofactors: &[(u128, usize)]) -> Vec<(u128, u
             i += 1;
 
             // increase max iterations after trying all methods
-            if i.is_multiple_of(NMETHODS) {
+            if i % NMETHODS == 0 {
                 max_iter_ratio *= 2;
             }
         };
@@ -782,7 +782,7 @@ where
 pub fn moebius_factorized<T>(factors: &BTreeMap<T, usize>) -> i8 {
     if factors.values().any(|exp| exp > &1) {
         0
-    } else if factors.len().is_multiple_of(2) {
+    } else if factors.len() % 2 == 0 {
         1
     } else {
         -1

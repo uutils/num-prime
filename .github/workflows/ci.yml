@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.87.0
+          - 1.70.0
           - stable
           - nightly
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -30,7 +30,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.87.0
+          - 1.70.0
           - stable
           - nightly
         os: [ubuntu-latest, windows-latest, macos-latest]

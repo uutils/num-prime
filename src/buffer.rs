@@ -427,7 +427,7 @@ impl NaiveBuffer {
     /// Legendre's phi function, used as a helper function for [`Self::prime_pi`]
     pub fn prime_phi(&mut self, x: u64, a: usize, cache: &mut LruCache<(u64, usize), u64>) -> u64 {
         if a == 1 {
-            return x.div_ceil(2);
+            return (x + 1) / 2;
         }
         if let Some(v) = cache.get(&(x, a)) {
             return *v;
