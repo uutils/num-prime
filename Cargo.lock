@@ -623,7 +623,6 @@ dependencies = [
  "num-bigint 0.4.6",
  "num-prime",
  "num-primes",
- "number-theory",
  "primal-check",
  "rand 0.8.5",
  "rand_chacha 0.10.0",
@@ -661,12 +660,6 @@ checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
 ]
-
-[[package]]
-name = "number-theory"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57bc4f91f6551203ba762815de0810e535fe07fadfc4050c3e85827867482e65"
 
 [[package]]
 name = "once_cell"

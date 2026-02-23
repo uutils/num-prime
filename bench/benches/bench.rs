@@ -13,8 +13,6 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use rand_core::SeedableRng as SeedableRng2;
 
-#[cfg(target_arch = "x86_64")]
-use number_theory::NumberTheory;
 use primal_check::miller_rabin;
 
 pub fn bench_is_prime(c: &mut Criterion) {
@@ -29,11 +27,6 @@ pub fn bench_is_prime(c: &mut Criterion) {
 
     group.bench_function("num-prime (this crate)", |b| {
         b.iter(|| numbers().filter(|&n| nt_funcs::is_prime64(n)).count())
-    });
-
-    #[cfg(target_arch = "x86_64")]
-    group.bench_function("number-theory", |b| {
-        b.iter(|| numbers().filter(|&n| NumberTheory::is_prime(&n)).count())
     });
 
     #[cfg(feature = "num-primes")]
@@ -199,15 +192,6 @@ pub fn bench_factorization(c: &mut Criterion) {
         b.iter(|| {
             numbers()
                 .filter(|&n| nt_funcs::factorize64(n).len() > 1)
-                .count()
-        })
-    });
-
-    #[cfg(target_arch = "x86_64")]
-    group.bench_function("number-theory", |b| {
-        b.iter(|| {
-            numbers()
-                .filter(|&n| NumberTheory::factor(&n).len() > 1)
                 .count()
         })
     });
