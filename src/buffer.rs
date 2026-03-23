@@ -65,7 +65,8 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
         let mut probability = 1.;
 
         // miller-rabin test
-        let mut witness_list: Vec<u64> = Vec::new();
+        let mut witness_list: Vec<u64> =
+            Vec::with_capacity(config.sprp_trials + config.sprp_random_trials);
         if config.sprp_trials > 0 {
             witness_list.extend(self.iter().take(config.sprp_trials));
             probability *= 1. - 0.25f32.powi(config.sprp_trials as i32);

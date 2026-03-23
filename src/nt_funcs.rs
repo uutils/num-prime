@@ -50,6 +50,7 @@ use crate::tables::{MILLER_RABIN_BASE32, MILLER_RABIN_BASE64};
 /// assert!(is_prime64(6_469_693_333));
 /// ```
 #[cfg(not(feature = "big-table"))]
+#[inline]
 pub fn is_prime64(target: u64) -> bool {
     // shortcuts
     if target < 2 {
@@ -90,6 +91,7 @@ pub fn is_prime64(target: u64) -> bool {
 /// assert!(is_prime64(6_469_693_333));
 /// ```
 #[cfg(feature = "big-table")]
+#[inline]
 #[must_use]
 pub fn is_prime64(target: u64) -> bool {
     // shortcuts
@@ -120,6 +122,7 @@ pub fn is_prime64(target: u64) -> bool {
 // Primality test for u64 with only miller-rabin tests, used during factorization.
 // It assumes the target is odd, not too small and cannot be divided small primes
 #[cfg(not(feature = "big-table"))]
+#[inline]
 fn is_prime64_miller(target: u64) -> bool {
     // The collection of witnesses are from http://miller-rabin.appspot.com/
     if let Ok(u) = u32::try_from(target) {
@@ -134,6 +137,7 @@ fn is_prime64_miller(target: u64) -> bool {
 }
 
 #[cfg(feature = "big-table")]
+#[inline]
 fn is_prime32_miller(target: u32) -> bool {
     let h = u64::from(target);
     let h = ((h >> 16) ^ h).wrapping_mul(0x045d_9f3b);
@@ -146,6 +150,7 @@ fn is_prime32_miller(target: u32) -> bool {
 // Primality test for u64 with only miller-rabin tests, used during factorization.
 // It assumes the target is odd, not too small and cannot be divided small primes
 #[cfg(feature = "big-table")]
+#[inline]
 fn is_prime64_miller(target: u64) -> bool {
     if let Ok(u) = u32::try_from(target) {
         return is_prime32_miller(u);
@@ -199,17 +204,12 @@ pub fn factorize64(target: u64) -> BTreeMap<u64, usize> {
 
     // quick check on factors of 2
     let f2 = target.trailing_zeros();
-    if f2 == 0 {
-        if is_prime64(target) {
-            result.insert(target, 1);
-            return result;
-        }
-    } else {
+    if f2 != 0 {
         result.insert(2, f2 as usize);
     }
 
     // trial division using primes in the table
-    let tsqrt = target.sqrt() + 1;
+    let mut tsqrt = target.sqrt() + 1;
 
     let mut residual = target >> f2;
     let mut factored = false;
@@ -221,9 +221,14 @@ pub fn factorize64(target: u64) -> BTreeMap<u64, usize> {
             break;
         }
 
-        while residual % p == 0 {
-            residual = residual / p;
+        if residual % p == 0 {
+            residual /= p;
             *result.entry(p).or_insert(0) += 1;
+            while residual % p == 0 {
+                residual /= p;
+                *result.entry(p).or_insert(0) += 1;
+            }
+            tsqrt = residual.sqrt() + 1;
         }
         if residual == 1 {
             factored = true;
@@ -252,6 +257,7 @@ pub fn factorize64(target: u64) -> BTreeMap<u64, usize> {
         }
         if exp > 0 {
             result.insert(p, exp);
+            tsqrt = residual.sqrt() + 1;
         }
 
         if residual == 1 {
@@ -267,6 +273,15 @@ pub fn factorize64(target: u64) -> BTreeMap<u64, usize> {
         return result;
     }
 
+    // check primality on the residual before expensive factorization
+    if residual == 1 {
+        return result;
+    }
+    if is_prime64_miller(residual) {
+        result.insert(residual, 1);
+        return result;
+    }
+
     // then try advanced methods to find a divisor util fully factored
     for (p, exp) in factorize64_advanced(&[(residual, 1usize)]) {
         *result.entry(p).or_insert(0) += exp;
@@ -277,7 +292,7 @@ pub fn factorize64(target: u64) -> BTreeMap<u64, usize> {
 // This function factorize all cofactors after some trivial division steps
 pub(crate) fn factorize64_advanced(cofactors: &[(u64, usize)]) -> Vec<(u64, usize)> {
     let mut todo: Vec<_> = cofactors.to_vec();
-    let mut factored: Vec<(u64, usize)> = Vec::new(); // prime factor, exponent
+    let mut factored: Vec<(u64, usize)> = Vec::with_capacity(cofactors.len() * 2); // prime factor, exponent
 
     while let Some((target, exp)) = todo.pop() {
         if is_prime64_miller(target) {
@@ -397,7 +412,7 @@ pub fn factorize128(target: u128) -> BTreeMap<u128, usize> {
     #[cfg(not(feature = "big-table"))]
     for p in SMALL_PRIMES.iter().skip(1).map(|&v| v as u128) {
         while residual % p == 0 {
-            residual = residual / p;
+            residual /= p;
             *result.entry(p).or_insert(0) += 1;
         }
         if residual == 1 {
@@ -435,8 +450,11 @@ pub fn factorize128(target: u128) -> BTreeMap<u128, usize> {
 }
 
 pub(crate) fn factorize128_advanced(cofactors: &[(u128, usize)]) -> Vec<(u128, usize)> {
-    let (mut todo128, mut todo64) = (Vec::new(), Vec::new()); // cofactors to be processed
-    let mut factored: Vec<(u128, usize)> = Vec::new(); // prime factor, exponent
+    let (mut todo128, mut todo64) = (
+        Vec::with_capacity(cofactors.len()),
+        Vec::with_capacity(cofactors.len()),
+    ); // cofactors to be processed
+    let mut factored: Vec<(u128, usize)> = Vec::with_capacity(cofactors.len() * 2); // prime factor, exponent
     for &(co, e) in cofactors {
         if let Ok(co64) = u64::try_from(co) {
             todo64.push((co64, e));
@@ -470,7 +488,22 @@ pub(crate) fn factorize128_advanced(cofactors: &[(u128, usize)]) -> Vec<(u128, u
             }
             continue;
         }
-        // TODO: check 5-th, 7-th power
+        if let Some(d) = target.nth_root_exact(5) {
+            if let Ok(d64) = u64::try_from(d) {
+                todo64.push((d64, exp * 5));
+            } else {
+                todo128.push((d, exp * 5));
+            }
+            continue;
+        }
+        if let Some(d) = target.nth_root_exact(7) {
+            if let Ok(d64) = u64::try_from(d) {
+                todo64.push((d64, exp * 7));
+            } else {
+                todo128.push((d, exp * 7));
+            }
+            continue;
+        }
 
         // try to find a divisor
         let mut i = 0usize;
