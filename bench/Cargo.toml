@@ -22,4 +22,5 @@ is_prime = "2.0.7"
 glass_pumpkin = "1.2.0"
 
 [features]
-default = ["num-primes"]
+default = []
+num-primes = ["dep:num-primes"]
