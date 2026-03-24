@@ -60,6 +60,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
                 .count()
         })
     });
+    #[cfg(feature = "num-primes")]
     group.bench_function("num-primes", |b| {
         b.iter(|| {
             numbers
@@ -87,6 +88,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
                 .count()
         })
     });
+    #[cfg(feature = "num-primes")]
     group.bench_function("num-primes", |b| {
         b.iter(|| {
             numbers
@@ -126,6 +128,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
                 .count()
         })
     });
+    #[cfg(feature = "num-primes")]
     group.bench_function("num-primes", |b| {
         b.iter(|| {
             numbers
@@ -153,6 +156,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
                 .count()
         })
     });
+    #[cfg(feature = "num-primes")]
     group.bench_function("num-primes", |b| {
         b.iter(|| {
             numbers
@@ -208,6 +212,7 @@ pub fn bench_prime_gen(c: &mut Criterion) {
         b.iter(|| -> num_bigint::BigUint { rng.gen_prime(256, None) })
     });
     // Note: num-primes uses thread_rng() internally, so this benchmark is not deterministic
+    #[cfg(feature = "num-primes")]
     group.bench_function("num-primes", |b| b.iter(|| Generator::new_prime(256)));
     let mut rng_gp = ChaCha8Rng::seed_from_u64(257);
     group.bench_function("glass_pumpkin", |b| {
@@ -223,6 +228,7 @@ pub fn bench_prime_gen(c: &mut Criterion) {
         b.iter(|| -> num_bigint::BigUint { rng.gen_safe_prime(256) })
     });
     // Note: num-primes uses thread_rng() internally, so this benchmark is not deterministic
+    #[cfg(feature = "num-primes")]
     group.bench_function("num-primes", |b| b.iter(|| Generator::safe_prime(256)));
     let mut rng_gp = ChaCha8Rng::seed_from_u64(513);
     group.bench_function("glass_pumpkin", |b| {
