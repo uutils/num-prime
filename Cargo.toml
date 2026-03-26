@@ -39,6 +39,11 @@ big-table = []
 # TODO: use the new cargo feature to override the num-bigint option
 big-int = ['num-bigint', 'num-modular/num-bigint', 'num-modular/num-traits', 'num-modular/num-integer']
 
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+
 [workspace]
 members = [
   "bench",
