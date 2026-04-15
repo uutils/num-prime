@@ -438,16 +438,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "is_prime"
-version = "2.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4db9b8aa828653de8d06c4aabc6428eb4676563905f67fa61679ed4d6dbc808f"
-dependencies = [
- "num-bigint 0.4.6",
- "num-traits",
-]
-
-[[package]]
 name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -619,7 +609,6 @@ version = "0.0.0"
 dependencies = [
  "codspeed-criterion-compat",
  "glass_pumpkin",
- "is_prime",
  "num-bigint 0.4.6",
  "num-prime",
  "num-primes",
