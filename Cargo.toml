@@ -24,7 +24,7 @@ num-integer = "0.1.44"
 num-traits = "0.2.14"
 num-modular = "0.6.1"
 bitvec = "1.0.0"
-rand = "0.8.4"
+rand = "0.8.6"
 lru = "0.16.3"
 either = "1.6.1"
 
