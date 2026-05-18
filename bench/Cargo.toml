@@ -18,7 +18,7 @@ glass_pumpkin = "1.2.0"
 num-bigint = { version = "0.4", features = ["rand"] }
 num-prime = { path = "..", features = ["big-int"] }
 primal-check = "0.3.1"
-rand = "0.8.6"
+rand = "0.10.0"
 rand_chacha = "0.10"
 rand_core = "0.10"
 
