@@ -14,7 +14,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
@@ -36,7 +36,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
@@ -52,13 +52,13 @@ jobs:
         os: [ubuntu-latest]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: cargo fmt --check --all
 
   mathematical_validation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install Scilab CLI
         run: |
           sudo apt-get update
@@ -78,7 +78,7 @@ jobs:
           - { os: macos-latest   , features: macos }
           - { os: windows-latest , features: windows }
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Initialize workflow variables
       id: vars
       shell: bash
