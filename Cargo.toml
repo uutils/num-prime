@@ -25,7 +25,7 @@ num-traits = "0.2.14"
 num-modular = "0.6.1"
 bitvec = "1.0.0"
 rand = "0.8.6"
-lru = "0.16.3"
+lru = "0.18.0"
 either = "1.6.1"
 
 [dependencies.num-bigint]
