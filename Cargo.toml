@@ -1,6 +1,6 @@
 [workspace.package]
 edition = "2018"
-rust-version = "1.70"
+rust-version = "1.85.0"
 
 [package]
 name = "num-prime"
@@ -25,12 +25,12 @@ num-traits = "0.2.14"
 num-modular = "0.6.1"
 bitvec = "1.0.0"
 rand = "0.8.6"
-lru = "0.16.3"
+lru = "0.18.0"
 either = "1.6.1"
 
 [dependencies.num-bigint]
 optional = true
-version = "0.4.6"
+version = "0.5.0"
 features = ["rand"]
 
 [features]
