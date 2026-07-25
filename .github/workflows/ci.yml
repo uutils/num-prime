@@ -41,7 +41,11 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           components: clippy
-      - run: cargo clippy -- -D warnings
+      # Benches are not supported by the MSRV.
+      - if: ${{ !(matrix.rust == 'stable' || matrix.rust == 'nightly') }}
+        run: cargo clippy --exclude num-prime-bench --workspace --all-targets --all-features -- -D warnings
+      - if: matrix.rust == 'stable' || matrix.rust == 'nightly'
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   rustfmt:
     runs-on: ${{ matrix.os }}
