@@ -35,7 +35,7 @@ num-traits = "0.2.14"
 rand = "0.8.6"
 
 [dependencies.num-bigint]
-version = "0.4.6"
+version = "0.5.0"
 features = ["rand"]
 optional = true
 
