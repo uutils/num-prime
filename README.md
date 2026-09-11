@@ -34,4 +34,4 @@ This crate provides utilities for prime number related functionalities:
   - Divisor Sigma function *([in examples](./examples/divisor_sigma.rs))*
   - Prime Omega function *([in examples](./examples/prime_omega.rs))*
 
-It's based on the `num` creates and most functions are decently optimized with pre-computed tables (see **[benchmark results here](./PERFORMANCE.md)**).
+It's based on the `num` crates and most functions are decently optimized with pre-computed tables (see **[benchmark results here](./PERFORMANCE.md)**).
