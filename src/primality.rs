@@ -152,7 +152,7 @@ where
     }
 
     fn test_sprp(&self, base: T) -> Either<bool, T> {
-        if self < &Self::one() {
+        if self <= &Self::one() {
             return Either::Left(false);
         }
 
@@ -424,6 +424,14 @@ mod tests {
             SmallMint::from(341u16).test_sprp(2.into()),
             Either::Right(31.into())
         );
+
+        // one is not prime and must not pass the test
+        assert_eq!(1u16.test_sprp(2), Either::Left(false));
+        assert!(!1u16.is_sprp(2));
+        #[cfg(feature = "num-bigint")]
+        {
+            assert!(!BigUint::from(1u8).is_sprp(BigUint::from(2u8)));
+        }
     }
 
     #[test]
