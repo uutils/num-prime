@@ -64,6 +64,7 @@ macro_rules! impl_exactroot_prim {
                 }
             }
             fn sqrt_exact(&self) -> Option<Self> {
+                if *self == 0 { return Some(0); }
                 if self < &0 { return None; }
                 let shift = self.trailing_zeros();
 
@@ -336,6 +337,39 @@ mod tests {
         // Test positive cases still work
         assert_eq!(16i32.nth_root_exact(4), Some(2));
         assert_eq!(32i32.nth_root_exact(5), Some(2));
+    }
+
+    #[test]
+    fn test_sqrt_exact_zero() {
+        // sqrt_exact(0) must return Some(0) for all primitive types;
+        // previously this reached `self >> trailing_zeros()` with
+        // shift == bit width, which is an invalid shift.
+        assert_eq!(0u8.sqrt_exact(), Some(0));
+        assert_eq!(0u16.sqrt_exact(), Some(0));
+        assert_eq!(0u32.sqrt_exact(), Some(0));
+        assert_eq!(0u64.sqrt_exact(), Some(0));
+        assert_eq!(0u128.sqrt_exact(), Some(0));
+        assert_eq!(0usize.sqrt_exact(), Some(0));
+        assert_eq!(0i8.sqrt_exact(), Some(0));
+        assert_eq!(0i16.sqrt_exact(), Some(0));
+        assert_eq!(0i32.sqrt_exact(), Some(0));
+        assert_eq!(0i64.sqrt_exact(), Some(0));
+        assert_eq!(0i128.sqrt_exact(), Some(0));
+        assert_eq!(0isize.sqrt_exact(), Some(0));
+
+        assert!(0u64.is_square());
+        assert!(0i64.is_square());
+
+        // neighboring behavior is unchanged
+        assert_eq!(1u64.sqrt_exact(), Some(1));
+        assert_eq!(4u64.sqrt_exact(), Some(2));
+        assert_eq!(9u64.sqrt_exact(), Some(3));
+        assert_eq!(16u64.sqrt_exact(), Some(4));
+        assert_eq!(2u64.sqrt_exact(), None);
+        assert_eq!(3u64.sqrt_exact(), None);
+        assert_eq!(15u64.sqrt_exact(), None);
+        assert_eq!((-1i32).sqrt_exact(), None);
+        assert_eq!((-4i32).sqrt_exact(), None);
     }
 
     #[test]
