@@ -4,6 +4,7 @@ use std::iter::repeat_with;
 
 use criterion::{Criterion, SamplingMode};
 use glass_pumpkin::{prime as gprime, safe_prime as safe_gprime};
+use num_bigint::BigUint;
 use num_bigint::RandBigInt;
 use num_prime::{nt_funcs, RandPrime};
 #[cfg(feature = "num-primes")]
@@ -203,6 +204,54 @@ pub fn bench_factorization(c: &mut Criterion) {
     group.finish();
 }
 
+/// Factorizations that are cheap for the right algorithm and ruinous for the
+/// wrong one: products of several primes of similar, moderate size, where
+/// trial division is useless, Pollard's rho has to run for a while, and the
+/// O(n^(1/4)) methods never finish.
+///
+/// Each of these used to take seconds to tens of seconds. They are the shapes
+/// a factorization regression shows up in first, so they are worth tracking
+/// even though they are slower than the rest of this file.
+pub fn bench_hard_factorization(c: &mut Criterion) {
+    // 529341446939 * 529341447079 * 529341447139
+    const THREE_PRIMES: u128 = 148_322_726_715_648_124_896_087_586_879_631_159;
+    // thirteen primes near 2^39
+    const THIRTEEN_PRIMES: &str = "256192672085272469290287843204387360975152374284235599731951768269391636066386517575760286247162035537155995319918598846421204855240141082924971355328149";
+    // five primes near 2^38
+    const FIVE_PRIMES: &str = "1569275491456096801522790424087360918295323588350447935207";
+    // 34359738421^7, which Pollard's rho cannot split at all
+    const PRIME_POWER: &str =
+        "56539106683390492137844827055225747632151249167945695848217966183182073341";
+
+    let mut group = c.benchmark_group("factorize (hard)");
+    group.sample_size(10).sampling_mode(SamplingMode::Flat);
+
+    group.bench_function("three 39-bit primes (u128)", |b| {
+        b.iter(|| {
+            let factors = nt_funcs::factorize128(THREE_PRIMES);
+            assert_eq!(factors.len(), 3);
+            factors
+        })
+    });
+
+    for (name, digits, count) in [
+        ("five 38-bit primes (191 bits)", FIVE_PRIMES, 5),
+        ("thirteen 39-bit primes (507 bits)", THIRTEEN_PRIMES, 13),
+        ("a 35-bit prime to the 7th (246 bits)", PRIME_POWER, 1),
+    ] {
+        let target: BigUint = digits.parse().unwrap();
+        group.bench_function(name, |b| {
+            b.iter(|| {
+                let factors = nt_funcs::factorize(target.clone());
+                assert_eq!(factors.len(), count);
+                factors
+            })
+        });
+    }
+
+    group.finish();
+}
+
 pub fn bench_prime_gen(c: &mut Criterion) {
     let mut group = c.benchmark_group("prime generation (256 bits)");
     group.sample_size(10).sampling_mode(SamplingMode::Flat);
@@ -241,6 +290,7 @@ criterion_group!(
     benches,
     bench_is_prime,
     bench_factorization,
+    bench_hard_factorization,
     bench_prime_gen
 );
 criterion_main!(benches);
