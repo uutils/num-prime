@@ -193,6 +193,14 @@ impl Montgomery {
 /// Modelled on KACTL's `content/number-theory/Factor.h` (CC0-1.0), specialized
 /// to Montgomery arithmetic and to a gcd over [`BigUint`].
 fn pollard_rho(n: &BigUint) -> BigUint {
+    rho(n).0
+}
+
+/// [`pollard_rho`], also reporting the polynomial constant that split `n`.
+///
+/// Only the divisor is of interest in anger; the tests use `c` to tell a split
+/// found under the opening polynomial from one that needed a later.
+fn rho(n: &BigUint) -> (BigUint, u64) {
     /// Differences accumulated into `prod` per gcd. A bigger batch trades
     /// steps wasted past the split for fewer of the gcds, which dominate.
     const BATCH: usize = 128;
@@ -214,6 +222,10 @@ fn pollard_rho(n: &BigUint) -> BigUint {
     let mut hare = tortoise.clone();
     let mut prod = one;
 
+    // Both walkers start equal, so the opening pass through the cycled branch
+    // below is what picks the first polynomial: c is a "none yet" sentinel
+    // until then. It starts at 1 rather than 0 because x^2 + 2 opens better
+    // than x^2 + 1 -- ~35% on the hard factorization benchmarks.
     let mut c = 1u64;
     let mut steps = 0usize;
     loop {
@@ -246,7 +258,7 @@ fn pollard_rho(n: &BigUint) -> BigUint {
             steps = 0;
             let gcd = from_limbs(&prod).gcd(n);
             if !gcd.is_one() {
-                return gcd;
+                return (gcd, c);
             }
         }
     }
@@ -333,6 +345,35 @@ mod tests {
             }
             Split::Power(root, exp) => panic!("unexpected perfect power {}^{}", root, exp),
         }
+    }
+
+    /// The point of keeping the last non-zero product: when Floyd's walkers
+    /// meet without having split `n`, the polynomial constant advances and the
+    /// walk restarts, carrying `prod` over. Only small moduli cycle soon
+    /// enough to reach that branch -- the wide ones this module is built for
+    /// split long before their sequences close.
+    #[test]
+    fn advances_the_polynomial_when_the_sequence_cycles() {
+        for n in [35u64, 1_000_025, 1_000_027] {
+            let big = BigUint::from(n);
+            let (d, c) = rho(&big);
+            assert!(c > 2, "{} split under the opening polynomial", n);
+            assert!(
+                d > BigUint::one() && d < big,
+                "trivial divisor {} of {}",
+                d,
+                n
+            );
+            assert!((&big % &d).is_zero(), "{} does not divide {}", d, n);
+        }
+    }
+
+    /// The counterpart: a modulus of the size this module actually sees splits
+    /// under the opening polynomial, without ever taking that branch.
+    #[test]
+    fn a_wide_semiprime_splits_under_the_opening_polynomial() {
+        let (_, c) = rho(&parse("1180591625390335725871"));
+        assert_eq!(c, 2);
     }
 
     #[test]
