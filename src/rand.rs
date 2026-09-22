@@ -13,6 +13,8 @@ macro_rules! impl_randprime_prim {
                 if bit_size > (<$T>::BITS as usize) {
                     panic!("The given bit size limit exceeded the capacity of the integer type!")
                 }
+                // Below two bits there is no prime to return within the width.
+                assert!(bit_size >= 2, "The given bit size is too small to hold a prime!");
 
                 loop {
                     let t: $T = self.gen();
@@ -21,7 +23,11 @@ macro_rules! impl_randprime_prim {
                         break t
                     } else if let Some(p) = next_prime(&t, None) {
                         // deterministic primality test will be used for integers under u64
-                        break p
+                        // next_prime can step past the requested width -- for 12 bits,
+                        // 4095 gives 4099 -- so draw again rather than widen.
+                        if bit_size as u32 == <$T>::BITS || p >> (bit_size as u32) == 0 {
+                            break p
+                        }
                     }
                 }
             }
@@ -31,6 +37,8 @@ macro_rules! impl_randprime_prim {
                 if bit_size > (<$T>::BITS as usize) {
                     panic!("The given bit size limit exceeded the capacity of the integer type!")
                 }
+                // Below two bits there is no prime to return within the width.
+                assert!(bit_size >= 2, "The given bit size is too small to hold a prime!");
 
                 loop {
                     let t: $T = self.gen();
@@ -39,7 +47,11 @@ macro_rules! impl_randprime_prim {
                         break t
                     } else if let Some(p) = next_prime(&t, None) {
                         // deterministic primality test will be used for integers under u64
-                        break p
+                        // next_prime can step past the requested width -- for 12 bits,
+                        // 4095 gives 4099 -- so draw again rather than widen.
+                        if bit_size as u32 == <$T>::BITS || p >> (bit_size as u32) == 0 {
+                            break p
+                        }
                     }
                 }
             }
@@ -87,6 +99,11 @@ impl<R: Rng> RandPrime<u128> for R {
             bit_size <= (u128::BITS as usize),
             "The given bit size limit exceeded the capacity of the integer type!"
         );
+        // Below two bits there is no prime to return within the width.
+        assert!(
+            bit_size >= 2,
+            "The given bit size is too small to hold a prime!"
+        );
 
         loop {
             let t: u128 = self.gen();
@@ -95,7 +112,10 @@ impl<R: Rng> RandPrime<u128> for R {
                 break t;
             } else if let Some(p) = next_prime(&t, None) {
                 // deterministic primality test will be used for integers under u64
-                break p;
+                // next_prime can step past the requested width; draw again if it did.
+                if bit_size as u32 == u128::BITS || p >> (bit_size as u32) == 0 {
+                    break p;
+                }
             }
         }
     }
@@ -106,6 +126,11 @@ impl<R: Rng> RandPrime<u128> for R {
             bit_size <= (u128::BITS as usize),
             "The given bit size limit exceeded the capacity of the integer type!"
         );
+        // Below two bits there is no prime to return within the width.
+        assert!(
+            bit_size >= 2,
+            "The given bit size is too small to hold a prime!"
+        );
 
         loop {
             let t: u128 = self.gen();
@@ -114,7 +139,10 @@ impl<R: Rng> RandPrime<u128> for R {
                 break t;
             } else if let Some(p) = next_prime(&t, None) {
                 // deterministic primality test will be used for integers under u64
-                break p;
+                // next_prime can step past the requested width; draw again if it did.
+                if bit_size as u32 == u128::BITS || p >> (bit_size as u32) == 0 {
+                    break p;
+                }
             }
         }
     }
@@ -151,19 +179,32 @@ impl<R: Rng> RandPrime<u128> for R {
 impl<R: Rng> RandPrime<BigUint> for R {
     #[inline]
     fn gen_prime(&mut self, bit_size: usize, config: Option<PrimalityTestConfig>) -> BigUint {
+        // Below two bits there is no prime to return within the width.
+        assert!(
+            bit_size >= 2,
+            "The given bit size is too small to hold a prime!"
+        );
         loop {
             let mut t = self.gen_biguint(bit_size as u64);
             t.set_bit(0, true); // filter even numbers
             if is_prime(&t, config).probably() {
                 break t;
             } else if let Some(p) = next_prime(&t, config) {
-                break p;
+                // next_prime can step past the requested width; draw again if it did.
+                if p.bits() <= bit_size as u64 {
+                    break p;
+                }
             }
         }
     }
 
     #[inline]
     fn gen_prime_exact(&mut self, bit_size: usize, config: Option<PrimalityTestConfig>) -> BigUint {
+        // Below two bits there is no prime to return within the width.
+        assert!(
+            bit_size >= 2,
+            "The given bit size is too small to hold a prime!"
+        );
         loop {
             let mut t = self.gen_biguint(bit_size as u64);
             t.set_bit(0, true); // filter even numbers
@@ -171,7 +212,10 @@ impl<R: Rng> RandPrime<BigUint> for R {
             if is_prime(&t, config).probably() {
                 break t;
             } else if let Some(p) = next_prime(&t, config) {
-                break p;
+                // next_prime can step past the requested width; draw again if it did.
+                if p.bits() <= bit_size as u64 {
+                    break p;
+                }
             }
         }
     }
@@ -245,6 +289,25 @@ mod tests {
         assert!(p < (1 << 12));
         let p: u32 = rng.gen_prime(24, None);
         assert!(p < (1 << 24));
+    }
+
+    /// `next_prime` steps past the requested width once in every 2048 odd
+    /// draws at 12 bits -- 4095 gives 4099 -- which is rare enough that the
+    /// bound assertions above reached CI as a flake rather than a failure.
+    /// Draw enough times to make the boundary a certainty instead.
+    #[test]
+    fn rand_prime_stays_within_the_bit_size() {
+        let mut rng = rand::thread_rng();
+        for _ in 0..50_000 {
+            let p: u16 = rng.gen_prime(12, None);
+            assert!(p < (1 << 12), "{} is wider than 12 bits", p);
+            let p: u16 = rng.gen_prime_exact(12, None);
+            assert!(
+                (1 << 11..1 << 12).contains(&p),
+                "{} is not exactly 12 bits",
+                p
+            );
+        }
     }
 
     #[test]
