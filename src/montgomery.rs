@@ -181,12 +181,22 @@ impl Montgomery {
 /// always split such an `n` eventually, so the only question is how long it
 /// takes.
 ///
-/// The algorithm is the standard one: Brent's cycle detection, a single gcd
-/// over a batch of 128 accumulated differences, then a replay of the batch to
-/// pin down the factor. It specializes
-/// [`pollard_rho`][crate::factor::pollard_rho] to Montgomery arithmetic; GNU
-/// factor arranges it the same way.
+/// Floyd's cycle detection over `x -> x^2 + c`, with the differences
+/// accumulated into a product so that a single gcd covers a whole batch of
+/// them. Keeping the last non-zero product rather than the current one is what
+/// makes that batch safe: the accumulator never reaches zero, so `gcd(prod, n)`
+/// can never be `n`, and a gcd that is not one is already a proper divisor --
+/// there is no batch to replay and no failure to recover from. The tortoise
+/// catching the hare means the sequence cycled without splitting `n`, so `c`
+/// moves on to the next polynomial.
+///
+/// Modelled on KACTL's `content/number-theory/Factor.h` (CC0-1.0), specialized
+/// to Montgomery arithmetic and to a gcd over [`BigUint`].
 fn pollard_rho(n: &BigUint) -> BigUint {
+    /// Differences accumulated into `prod` per gcd. A bigger batch trades
+    /// steps wasted past the split for fewer of the gcds, which dominate.
+    const BATCH: usize = 128;
+
     let mont = Montgomery::new(n);
     let len = mont.len();
     let mut scratch = vec![0u64; len + 2];
@@ -196,74 +206,50 @@ fn pollard_rho(n: &BigUint) -> BigUint {
     let mut diff = vec![0u64; len];
     let mut next = vec![0u64; len];
 
-    for seed in 1u64.. {
-        // The hare starts at 2 in Montgomery form; prod accumulates the
-        // differences whose gcd with n is taken once per batch.
-        let mut hare = vec![0u64; len];
-        mont.add(&one, &one, &mut hare);
-        let mut saved = hare.clone();
-        let mut tortoise = hare.clone();
-        let mut prod = one.clone();
+    // Both walkers start at 2 in Montgomery form; prod accumulates the
+    // differences whose gcd with n is taken once per batch.
+    let mut tortoise = vec![0u64; len];
+    mont.add(&one, &one, &mut tortoise);
+    let start = tortoise.clone();
+    let mut hare = tortoise.clone();
+    let mut prod = one;
 
-        let mut round = 1i64;
-        let found = 'search: loop {
-            let mut i = round;
-            while 0 < i {
-                mont.mulredc(&hare, &hare, &mut diff, &mut scratch);
-                core::mem::swap(&mut hare, &mut diff);
-                mont.addc(&mut hare, seed);
-
-                mont.sub(&tortoise, &hare, &mut diff);
-                mont.mulredc(&prod, &diff, &mut next, &mut scratch);
-                core::mem::swap(&mut prod, &mut next);
-
-                if i % 128 == 1 {
-                    if prod.iter().all(|&limb| limb == 0) {
-                        // The batch folded the factor away; try another polynomial.
-                        break 'search n.clone();
-                    }
-                    let gcd = from_limbs(&prod).gcd(n);
-                    if !gcd.is_one() {
-                        break 'search gcd;
-                    }
-                    saved.copy_from_slice(&hare);
-                }
-                i -= 1;
-            }
-
-            tortoise.copy_from_slice(&hare);
-            let mut i = 2 * round;
-            while 0 < i {
-                mont.mulredc(&hare, &hare, &mut diff, &mut scratch);
-                core::mem::swap(&mut hare, &mut diff);
-                mont.addc(&mut hare, seed);
-                i -= 1;
-            }
-            saved.copy_from_slice(&hare);
-            round *= 2;
-        };
-
-        if &found != n {
-            return found;
+    let mut c = 1u64;
+    let mut steps = 0usize;
+    loop {
+        if tortoise == hare {
+            // The sequence cycled without splitting n: start over from the
+            // same point under the next polynomial, keeping what prod holds.
+            c += 1;
+            tortoise.copy_from_slice(&start);
+            hare.copy_from_slice(&start);
         }
 
-        // The batch gcd caught every factor at once: replay it step by step.
-        loop {
-            mont.mulredc(&saved, &saved, &mut diff, &mut scratch);
-            core::mem::swap(&mut saved, &mut diff);
-            mont.addc(&mut saved, seed);
-            mont.sub(&tortoise, &saved, &mut diff);
-            let gcd = from_limbs(&diff).gcd(n);
+        mont.sub(&tortoise, &hare, &mut diff);
+        mont.mulredc(&prod, &diff, &mut next, &mut scratch);
+        if next.iter().any(|&limb| limb != 0) {
+            prod.copy_from_slice(&next);
+        }
+
+        // The tortoise takes one step, the hare two.
+        mont.mulredc(&tortoise, &tortoise, &mut next, &mut scratch);
+        core::mem::swap(&mut tortoise, &mut next);
+        mont.addc(&mut tortoise, c);
+        for _ in 0..2 {
+            mont.mulredc(&hare, &hare, &mut next, &mut scratch);
+            core::mem::swap(&mut hare, &mut next);
+            mont.addc(&mut hare, c);
+        }
+
+        steps += 1;
+        if steps == BATCH {
+            steps = 0;
+            let gcd = from_limbs(&prod).gcd(n);
             if !gcd.is_one() {
-                if &gcd != n {
-                    return gcd;
-                }
-                // This polynomial cycles modulo every factor; try the next one.
-                break;
+                return gcd;
             }
         }
     }
-    unreachable!("Pollard's rho ran out of polynomials")
 }
 
 /// If `x` is a perfect power, return its root and the exponent.
