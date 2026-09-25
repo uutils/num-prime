@@ -12,7 +12,7 @@
 //!
 
 use crate::buffer::{NaiveBuffer, PrimeBufferExt};
-use crate::factor::{one_line, pollard_rho, squfof, SQUFOF_MULTIPLIERS};
+use crate::factor::{one_line, pollard_rho, squfof, RhoSeed, SQUFOF_MULTIPLIERS};
 use crate::mint::SmallMint;
 use crate::primality::{PrimalityBase, PrimalityRefBase};
 use crate::tables::{
@@ -27,7 +27,6 @@ use num_integer::Roots;
 use num_modular::DivExact;
 use num_modular::{ModularCoreOps, ModularInteger, MontgomeryInt};
 use num_traits::{CheckedAdd, FromPrimitive, Num, RefNum, ToPrimitive};
-use rand::random;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 
@@ -315,14 +314,15 @@ pub(crate) fn factorize64_advanced(cofactors: &[(u64, usize)]) -> Vec<(u64, usiz
         // try to find a divisor
         let mut i = 0usize;
         let mut max_iter_ratio = 1; // increase max_iter after factorization round
+        let mut rng = RhoSeed::new(target);
         let divisor = loop {
             // try various factorization method iteratively
             const NMETHODS: usize = 3;
             match i % NMETHODS {
                 0 => {
                     // Pollard's rho (quick check)
-                    let start = MontgomeryInt::new(random::<u64>(), &target);
-                    let offset = start.convert(random::<u64>());
+                    let start = MontgomeryInt::new(rng.next_u64(), &target);
+                    let offset = start.convert(rng.next_u64());
                     let max_iter = max_iter_ratio << (target.bits() / 6); // unoptimized heuristic
                     if let (Some(p), _) = pollard_rho(
                         &SmallMint::from(target),
@@ -508,6 +508,7 @@ pub(crate) fn factorize128_advanced(cofactors: &[(u128, usize)]) -> Vec<(u128, u
         // try to find a divisor
         let mut i = 0usize;
         let mut max_iter_ratio = 1;
+        let mut rng = RhoSeed::new(target as u64 ^ (target >> 64) as u64);
 
         // Hart's one-line and SQUFOF both cost O(target^(1/4)) per run, which
         // only competes with Pollard's rho while the target is small. Above 64
@@ -519,8 +520,8 @@ pub(crate) fn factorize128_advanced(cofactors: &[(u128, usize)]) -> Vec<(u128, u
             match i % nmethods {
                 0 => {
                     // Pollard's rho
-                    let start = MontgomeryInt::new(random::<u128>(), &target);
-                    let offset = start.convert(random::<u128>());
+                    let start = MontgomeryInt::new(u128::from(rng.next_u64()), &target);
+                    let offset = start.convert(u128::from(rng.next_u64()));
                     let max_iter = max_iter_ratio << (target.bits() / 6); // unoptimized heuristic
                     if let (Some(p), _) = pollard_rho(
                         &SmallMint::from(target),
