@@ -50,14 +50,18 @@
 //!
 //! # Backends
 //! This crate is built with modular integer type and prime generation backends.
-//! Most functions support generic input types, and support for `num-bigint` is
-//! also available (it's an optional feature). To make a new integer type supported
+//! Most functions support generic input types, and support for arbitrary-precision
+//! integers is available through the `dashu-int` (default) or `num-bigint`
+//! features. To make a new integer type supported
 //! by this crate, the type has to implement [`detail::PrimalityBase`] and [`detail::PrimalityRefBase`].
 //! For prime generation, there's a builtin implementation (see [buffer] module),
 //! but you can also use other backends (such as `primal`) as long as it implements [`PrimeBuffer`].
 //!
 //! # Optional Features
-//! - `big-int` (default): Enable this feature to support `num-bigint::BigUint` as integer inputs.
+//! - `dashu-int` (default): Enable this feature to support [`detail::UBigMint`]
+//!   (a `dashu_int::UBig` based integer with Montgomery-form modular arithmetic)
+//!   as integer inputs.
+//! - `big-int`: Enable this feature to support `num-bigint::BigUint` as integer inputs.
 //! - `big-table` (default): Enable this feature to allow compiling large precomputed tables which
 //!   could improve the speed of various functions with the cost of larger memory footprint.
 //!
@@ -68,6 +72,8 @@ pub mod buffer;
 pub mod factor;
 pub mod nt_funcs;
 
+#[cfg(all(feature = "dashu-int", not(feature = "big-int")))]
+mod dashu;
 mod integer;
 mod mint;
 #[cfg(feature = "big-int")]
@@ -86,6 +92,8 @@ pub mod detail {
     //! designed for such usage. User-friendly is not a goal and backward-compatilibity is not
     //! strictly maintained here. Some traits in this module can be used to extend `num-prime`
     //! with new backends.
+    #[cfg(feature = "dashu-int")]
+    pub use super::mint::UBigMint;
     pub use super::mint::{Mint, SmallMint};
     pub use super::primality::{LucasUtils, PrimalityBase, PrimalityRefBase};
     pub use super::tables::SMALL_PRIMES;
