@@ -1,14 +1,14 @@
 //! Backend implementations for integers
 
-#[cfg(feature = "num-bigint")]
+#[cfg(feature = "big-int")]
 use crate::tables::{CUBIC_MODULI, CUBIC_RESIDUAL, QUAD_MODULI, QUAD_RESIDUAL};
 use crate::traits::{BitTest, ExactRoots};
 
 use num_integer::Roots;
 
-#[cfg(feature = "num-bigint")]
+#[cfg(feature = "big-int")]
 use num_bigint::{BigInt, BigUint, ToBigInt};
-#[cfg(feature = "num-bigint")]
+#[cfg(feature = "big-int")]
 use num_traits::{One, Signed, ToPrimitive, Zero};
 
 macro_rules! impl_bittest_prim {
@@ -31,7 +31,7 @@ macro_rules! impl_bittest_prim {
 }
 impl_bittest_prim!(u8 u16 u32 u64 u128 usize);
 
-#[cfg(feature = "num-bigint")]
+#[cfg(feature = "big-int")]
 impl BitTest for BigUint {
     fn bit(&self, position: usize) -> bool {
         self.bit(position as u64)
@@ -80,7 +80,7 @@ macro_rules! impl_exactroot_prim {
 }
 impl_exactroot_prim!(u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize);
 
-#[cfg(feature = "num-bigint")]
+#[cfg(feature = "big-int")]
 impl ExactRoots for BigUint {
     fn sqrt_exact(&self) -> Option<Self> {
         // shortcuts
@@ -153,7 +153,7 @@ impl ExactRoots for BigUint {
     }
 }
 
-#[cfg(feature = "num-bigint")]
+#[cfg(feature = "big-int")]
 impl ExactRoots for BigInt {
     fn nth_root_exact(&self, n: u32) -> Option<Self> {
         // For even roots of negative numbers, return None instead of panicking
@@ -237,7 +237,7 @@ mod tests {
             assert!(ExactRoots::sqrt_exact(&(x * y)).is_none());
         }
 
-        #[cfg(feature = "num-bigint")]
+        #[cfg(feature = "big-int")]
         {
             use num_bigint::RandBigInt;
             let mut rng = rand::thread_rng();
@@ -373,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "num-bigint")]
+    #[cfg(feature = "big-int")]
     fn test_nth_root_exact_bigint_negative() {
         use num_bigint::BigInt;
 
