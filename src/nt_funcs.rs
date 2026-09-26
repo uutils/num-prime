@@ -12,9 +12,10 @@
 //!
 
 use crate::buffer::{NaiveBuffer, PrimeBufferExt};
-use crate::factor::{one_line, pollard_rho, squfof, RhoSeed, SQUFOF_MULTIPLIERS};
+use crate::factor::{one_line, pollard_rho, squfof, SQUFOF_MULTIPLIERS};
 use crate::mint::SmallMint;
 use crate::primality::{PrimalityBase, PrimalityRefBase};
+use crate::splitmix64::SplitMix64;
 use crate::tables::{
     MOEBIUS_ODD, SMALL_PRIMES, SMALL_PRIMES_NEXT, WHEEL_NEXT, WHEEL_PREV, WHEEL_SIZE,
 };
@@ -314,7 +315,7 @@ pub(crate) fn factorize64_advanced(cofactors: &[(u64, usize)]) -> Vec<(u64, usiz
         // try to find a divisor
         let mut i = 0usize;
         let mut max_iter_ratio = 1; // increase max_iter after factorization round
-        let mut rng = RhoSeed::new(target);
+        let mut rng = SplitMix64::new(target);
         let divisor = loop {
             // try various factorization method iteratively
             const NMETHODS: usize = 3;
@@ -508,7 +509,7 @@ pub(crate) fn factorize128_advanced(cofactors: &[(u128, usize)]) -> Vec<(u128, u
         // try to find a divisor
         let mut i = 0usize;
         let mut max_iter_ratio = 1;
-        let mut rng = RhoSeed::new(target as u64 ^ (target >> 64) as u64);
+        let mut rng = SplitMix64::new(target as u64 ^ (target >> 64) as u64);
 
         // Hart's one-line and SQUFOF both cost O(target^(1/4)) per run, which
         // only competes with Pollard's rho while the target is small. Above 64

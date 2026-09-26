@@ -13,26 +13,6 @@ use num_modular::{ModularCoreOps, ModularUnaryOps};
 use num_traits::{CheckedAdd, CheckedMul, FromPrimitive, NumRef, RefNum};
 use std::collections::BTreeMap;
 
-/// Deterministic generator (SplitMix64) for Pollard's rho start and offset values.
-///
-/// It is seeded from the number being factored, so factoring a number does
-/// the same work on every call, whatever was factored before.
-pub(crate) struct RhoSeed(u64);
-
-impl RhoSeed {
-    pub(crate) fn new(seed: u64) -> Self {
-        Self(seed)
-    }
-
-    pub(crate) fn next_u64(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-        z ^ (z >> 31)
-    }
-}
-
 /// Find factors by trial division, returns a tuple of the found factors and the residual.
 ///
 /// The target is guaranteed fully factored only if bound * bound > target, where bound = max(primes).
@@ -597,17 +577,5 @@ mod tests {
         assert!(residual.is_err()); // not fully factored
         assert_eq!(factors[&7], 1);
         assert_eq!(residual.unwrap_err(), 143);
-    }
-
-    #[test]
-    fn rho_seed_is_reproducible() {
-        let draw = |seed| {
-            let mut rng = RhoSeed::new(seed);
-            (0..8).map(|_| rng.next_u64()).collect::<Vec<_>>()
-        };
-        let first = draw(42);
-        assert_eq!(first, draw(42));
-        assert_ne!(first, draw(43));
-        assert_ne!(first[0], first[1]);
     }
 }
