@@ -74,6 +74,7 @@ mod mint;
 mod montgomery;
 mod primality;
 mod rand;
+mod splitmix64;
 mod tables;
 mod traits;
 mod util;

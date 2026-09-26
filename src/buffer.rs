@@ -11,6 +11,7 @@
 //!
 
 use crate::factor::{pollard_rho, trial_division};
+use crate::splitmix64::SplitMix64;
 use crate::nt_funcs::{
     factorize128, is_prime64, next_prime, nth_prime_bounds, nth_prime_est, prev_prime,
 };
@@ -22,7 +23,6 @@ use crate::traits::{
 use bitvec::{bitvec, prelude::Msb0};
 use lru::LruCache;
 use num_integer::Roots;
-use rand::random;
 use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
 
@@ -234,16 +234,21 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
 
         // try to get a factor using pollard_rho with 4x4 trials
         let below64 = target.to_u64().is_some();
+        let mut rng = SplitMix64::new(
+            target
+                .to_u64()
+                .unwrap_or_else(|| (target % T::from_u64(u64::MAX).unwrap()).to_u64().unwrap()),
+        );
         while config.rho_trials > 0 {
             let (start, offset) = if below64 {
                 (
-                    T::from_u8(random::<u8>()).unwrap() % target,
-                    T::from_u8(random::<u8>()).unwrap() % target,
+                    T::from_u8(rng.next_u64() as u8).unwrap() % target,
+                    T::from_u8(rng.next_u64() as u8).unwrap() % target,
                 )
             } else {
                 (
-                    T::from_u64(random::<u64>()).unwrap() % target,
-                    T::from_u64(random::<u64>()).unwrap() % target,
+                    T::from_u64(rng.next_u64()).unwrap() % target,
+                    T::from_u64(rng.next_u64()).unwrap() % target,
                 )
             };
             config.rho_trials -= 1;
