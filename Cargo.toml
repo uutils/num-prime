@@ -43,7 +43,7 @@ optional = true
 version = "0.6.1"
 optional = true
 default-features = false
-features = ["std", "num-integer", "num-traits", "num-modular", "rand_v08"]
+features = ["std", "num-integer", "num-traits", "rand_v08"]
 
 [dependencies.dashu-base]
 version = "0.6.1"
@@ -63,7 +63,8 @@ big-table = []
 # NOTE: temporary local-development patch. dashu-int's num-modular support
 # (Reducer<UBig> for MontgomeryRepr, ModularSymbols for UBig, Pow<u32>) is not
 # published yet; switch the dependency back to a crates.io version once
-# dashu-int releases it.
+# dashu-int releases it. The impls there are always compiled in - dashu-int
+# has no num-modular feature.
 [patch.crates-io]
 dashu-base = { path = "/home/jacobz/dashu/base" }
 dashu-int = { path = "/home/jacobz/dashu/integer" }

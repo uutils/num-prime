@@ -26,4 +26,4 @@ rand = "0.8.6"
 rand_chacha = "0.3"
 rand_core = "0.6"
 
-dashu-int = { version = "0.6.1", default-features = false, features = ["std", "num-integer", "num-traits", "num-modular", "rand_v08"] }
+dashu-int = { version = "0.6.1", default-features = false, features = ["std", "num-integer", "num-traits", "rand_v08"] }
