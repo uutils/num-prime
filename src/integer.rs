@@ -1,6 +1,6 @@
 //! Backend implementations for integers
 
-#[cfg(feature = "num-bigint")]
+#[cfg(any(feature = "num-bigint", feature = "dashu-int"))]
 use crate::tables::{CUBIC_MODULI, CUBIC_RESIDUAL, QUAD_MODULI, QUAD_RESIDUAL};
 use crate::traits::{BitTest, ExactRoots};
 
@@ -10,6 +10,11 @@ use num_integer::Roots;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 #[cfg(feature = "num-bigint")]
 use num_traits::{One, Signed, ToPrimitive, Zero};
+
+#[cfg(feature = "dashu-int")]
+use dashu_int::UBig;
+#[cfg(all(feature = "dashu-int", not(feature = "num-bigint")))]
+use num_traits::ToPrimitive as _;
 
 macro_rules! impl_bittest_prim {
     ($($T:ty)*) => {$(
@@ -138,6 +143,96 @@ impl ExactRoots for BigUint {
         #[cfg(not(feature = "big-table"))]
         for (m, res) in CUBIC_MODULI.iter().zip(CUBIC_RESIDUAL) {
             if (res >> (self % m).to_u8().unwrap()) & 1 == 0 {
+                return None;
+            }
+        }
+        #[cfg(feature = "big-table")]
+        for (m, res) in CUBIC_MODULI.iter().zip(CUBIC_RESIDUAL) {
+            let rem = (self % m).to_u16().unwrap();
+            if (res[(rem / 64) as usize] >> (rem % 64)) & 1 == 0 {
+                return None;
+            }
+        }
+
+        self.nth_root_exact(3)
+    }
+}
+
+#[cfg(feature = "dashu-int")]
+impl BitTest for UBig {
+    fn bit(&self, position: usize) -> bool {
+        use dashu_base::BitTest;
+        BitTest::bit(self, position)
+    }
+    fn bits(&self) -> usize {
+        use dashu_base::BitTest;
+        BitTest::bit_len(self)
+    }
+    #[inline]
+    fn trailing_zeros(&self) -> usize {
+        // the BitTest::trailing_zeros contract: zero has no set bit, report 0
+        UBig::trailing_zeros(self).unwrap_or(0)
+    }
+}
+
+#[cfg(feature = "dashu-int")]
+impl ExactRoots for UBig {
+    fn sqrt_exact(&self) -> Option<Self> {
+        // shortcuts
+        if self.is_zero() {
+            return Some(UBig::ZERO);
+        }
+        if let Some(v) = self.to_u64() {
+            return v.sqrt_exact().map(UBig::from);
+        }
+
+        // check mod 2
+        let shift = UBig::trailing_zeros(self).expect("non-zero value has trailing zeros");
+        if shift & 1 == 1 {
+            return None;
+        }
+        if (self >> shift) & UBig::from(7u8) != UBig::ONE {
+            return None;
+        }
+
+        // check other moduli
+        #[cfg(not(feature = "big-table"))]
+        for (m, res) in QUAD_MODULI.iter().zip(QUAD_RESIDUAL) {
+            // need to &63 since we have 65 in QUAD_MODULI
+            if (res >> ((self % m).to_u8().unwrap() & 63)) & 1 == 0 {
+                return None;
+            }
+        }
+        #[cfg(feature = "big-table")]
+        for (m, res) in QUAD_MODULI.iter().zip(QUAD_RESIDUAL) {
+            let rem = (self % m).to_u16().unwrap();
+            if (res[(rem / 64) as usize] >> (rem % 64)) & 1 == 0 {
+                return None;
+            }
+        }
+
+        self.nth_root_exact(2)
+    }
+
+    fn cbrt_exact(&self) -> Option<Self> {
+        // shortcuts
+        if self.is_zero() {
+            return Some(UBig::ZERO);
+        }
+        if let Some(v) = self.to_u64() {
+            return v.cbrt_exact().map(UBig::from);
+        }
+
+        // check mod 2
+        let shift = UBig::trailing_zeros(self).expect("non-zero value has trailing zeros");
+        if shift % 3 != 0 {
+            return None;
+        }
+
+        // check other moduli
+        #[cfg(not(feature = "big-table"))]
+        for (m, res) in CUBIC_MODULI.iter().zip(CUBIC_RESIDUAL) {
+            if (res >> ((self % m).to_u8().unwrap())) & 1 == 0 {
                 return None;
             }
         }

@@ -1,8 +1,16 @@
 use crate::mint::SmallMint;
+#[cfg(feature = "dashu-int")]
+use crate::mint::UBigMint;
 use crate::nt_funcs::{is_prime, is_prime64, next_prime};
+#[cfg(feature = "dashu-int")]
+use crate::traits::BitTest as _;
 use crate::{PrimalityTestConfig, RandPrime};
+#[cfg(feature = "dashu-int")]
+use dashu_int::{rand::UniformBits, UBig};
 #[cfg(feature = "num-bigint")]
 use num_bigint::{BigUint, RandBigInt};
+#[cfg(feature = "dashu-int")]
+use rand::distributions::Distribution as _;
 use rand::Rng;
 
 macro_rules! impl_randprime_prim {
@@ -242,6 +250,86 @@ impl<R: Rng> RandPrime<BigUint> for R {
             let p: BigUint = self.gen_prime_exact(bit_size, config);
             if is_prime(&(&p >> 1u8), config).probably() {
                 return p;
+            }
+        }
+    }
+}
+
+#[cfg(feature = "dashu-int")]
+impl<R: Rng> RandPrime<UBigMint> for R {
+    #[inline]
+    fn gen_prime(&mut self, bit_size: usize, config: Option<PrimalityTestConfig>) -> UBigMint {
+        assert!(
+            bit_size >= 2,
+            "The given bit size is too small to hold a prime!"
+        );
+        gen_prime_ubig(self, bit_size, config, false)
+    }
+
+    #[inline]
+    fn gen_prime_exact(
+        &mut self,
+        bit_size: usize,
+        config: Option<PrimalityTestConfig>,
+    ) -> UBigMint {
+        assert!(
+            bit_size >= 2,
+            "The given bit size is too small to hold a prime!"
+        );
+        gen_prime_ubig(self, bit_size, config, true)
+    }
+
+    #[inline]
+    fn gen_safe_prime(&mut self, bit_size: usize) -> UBigMint {
+        let config = Some(PrimalityTestConfig::strict());
+        loop {
+            let p = gen_prime_ubig(self, bit_size, config, false);
+            if is_prime(&(&p >> 1usize), config).probably() {
+                return p;
+            }
+            // 2p + 1, computed in the mint domain (no Shl for Mint)
+            let p2 = &p + &p + &UBigMint::from(UBig::ONE);
+            if is_prime(&p2, config).probably() {
+                return p2;
+            }
+        }
+    }
+
+    #[inline]
+    fn gen_safe_prime_exact(&mut self, bit_size: usize) -> UBigMint {
+        let config = Some(PrimalityTestConfig::strict());
+        loop {
+            let p = gen_prime_ubig(self, bit_size, config, true);
+            if is_prime(&(&p >> 1usize), config).probably() {
+                return p;
+            }
+        }
+    }
+}
+
+/// Draw a random odd candidate of the requested width and step forward (via
+/// [`next_prime`]) until a prime is found within the width. When `exact` is
+/// set, the top bit is forced to one so that the result has exact the
+/// requested bit size.
+#[cfg(feature = "dashu-int")]
+fn gen_prime_ubig<R: Rng>(
+    rng: &mut R,
+    bit_size: usize,
+    config: Option<PrimalityTestConfig>,
+    exact: bool,
+) -> UBigMint {
+    loop {
+        let mut t: UBig = UniformBits::new(bit_size).sample(rng);
+        t.set_bit(0); // filter even numbers
+        if exact {
+            t.set_bit(bit_size - 1);
+        }
+        if is_prime(&UBigMint::from(t.clone()), config).probably() {
+            break UBigMint::from(t);
+        } else if let Some(p) = next_prime(&UBigMint::from(t), config) {
+            // next_prime can step past the requested width; draw again if it did.
+            if p.bits() <= bit_size {
+                break p;
             }
         }
     }

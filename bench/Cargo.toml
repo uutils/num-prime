@@ -9,12 +9,21 @@ publish = false
 harness = false
 name = "bench"
 
+[[bench]]
+harness = false
+name = "backend_ab"
+
 [dev-dependencies]
 criterion = { package = "codspeed-criterion-compat", version = "5.0.0" }
 glass_pumpkin = "1.2.0"
 num-bigint = { version = "0.4.6", features = ["rand"] }
-num-prime = { path = "..", features = ["big-int"] }
+num-prime = { path = "..", features = ["big-int", "dashu-int"] }
+num-modular = "0.6.5"
+num-integer = "0.1.46"
+num-traits = "0.2.18"
 primal-check = "0.3.1"
 rand = "0.8.6"
-rand_chacha = "0.10"
-rand_core = "0.10"
+rand_chacha = "0.3"
+rand_core = "0.6"
+
+dashu-int = { version = "0.6.1", default-features = false, features = ["std", "num-integer", "num-traits", "rand_v08"] }
