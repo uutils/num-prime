@@ -393,7 +393,7 @@ mod tests {
     use num_modular::{ModularAbs, ModularSymbols};
     use rand::random;
 
-    #[cfg(feature = "num-bigint")]
+    #[cfg(feature = "big-int")]
     use num_bigint::BigUint;
 
     #[test]
@@ -433,7 +433,7 @@ mod tests {
         assert_eq!(1u16.test_sprp(2), Either::Left(false));
         assert!(!1u16.is_sprp(2));
         assert!(!SmallMint::from(1u16).is_sprp(2.into()));
-        #[cfg(feature = "num-bigint")]
+        #[cfg(feature = "big-int")]
         {
             assert_eq!(
                 BigUint::from(1u8).test_sprp(BigUint::from(2u8)),
@@ -479,7 +479,7 @@ mod tests {
             let (uk, _) = LucasUtils::lucasm(3, -1, u64::from(m), n as u64);
             assert_eq!(uk, p3qm1_val % u64::from(m));
 
-            #[cfg(feature = "num-bigint")]
+            #[cfg(feature = "big-int")]
             {
                 let (uk, _) = LucasUtils::lucasm(3, -1, BigUint::from(m), BigUint::from(n));
                 assert_eq!(uk, BigUint::from(p3qm1_val % u64::from(m)));
