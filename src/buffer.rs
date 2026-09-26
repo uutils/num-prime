@@ -548,19 +548,19 @@ impl NaiveBuffer {
 mod tests {
     use super::*;
     use crate::mint::SmallMint;
-    #[cfg(feature = "num-bigint")]
+    #[cfg(feature = "big-int")]
     use core::str::FromStr;
-    #[cfg(feature = "num-bigint")]
+    #[cfg(feature = "big-int")]
     use num_bigint::BigUint;
     use rand::random;
 
     /// A 512-bit product of thirteen primes near 2^39. Every rho split used to
     /// draw on one shared budget of four trials, so everything past the fourth
     /// split came back as an unfactored remainder.
-    #[cfg(feature = "num-bigint")]
+    #[cfg(feature = "big-int")]
     const THIRTEEN_PRIMES: &str = "256192672085272469290287843204387360975152374284235599731951768269391636066386517575760286247162035537155995319918598846421204855240141082924971355328149";
 
-    #[cfg(feature = "num-bigint")]
+    #[cfg(feature = "big-int")]
     #[test]
     fn factors_many_similar_primes_completely() {
         let target = BigUint::from_str(THIRTEEN_PRIMES).unwrap();
@@ -581,7 +581,7 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "num-bigint")]
+    #[cfg(feature = "big-int")]
     #[test]
     fn factors_a_wide_prime_power() {
         // 34359738421^7, which Pollard's rho on its own cannot split
@@ -593,7 +593,7 @@ mod tests {
         assert_eq!(factors[&BigUint::from_str("34359738421").unwrap()], 7);
     }
 
-    #[cfg(feature = "num-bigint")]
+    #[cfg(feature = "big-int")]
     #[test]
     fn factors_a_wide_number_with_small_factors() {
         // 2^70 * 3^5 * 5 * 340282366920938463463374607431768211507
@@ -730,7 +730,7 @@ mod tests {
             Primality::Probable(_)
         ));
 
-        #[cfg(feature = "num-bigint")]
+        #[cfg(feature = "big-int")]
         {
             let large_primes = [
                 "98920366548084643601728869055592650835572950932266967461790948584315647051443",
@@ -788,7 +788,7 @@ mod tests {
 
     #[test]
     fn pb_factors_test() {
-        #[cfg(feature = "num-bigint")]
+        #[cfg(feature = "big-int")]
         {
             let pb = NaiveBuffer::new();
             let m131 = BigUint::from(2u8).pow(131) - 1u8; // m131/263 is a large prime

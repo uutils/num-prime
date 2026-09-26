@@ -31,19 +31,13 @@ either = "1.6.1"
 lru = "0.16.3"
 num-bigint = { version = "0.4.6", features = ["rand"], optional = true }
 num-integer = "0.1.46"
-num-modular = "0.6.1"
+num-modular = { version = "0.6.2", features = ["num-bigint"] }
 num-traits = "0.2.18"
 rand = "0.8.6"
 
 [features]
 default = ["big-int", "big-table"]
-# TODO: use the new cargo feature to override the num-bigint option
-big-int = [
-  "num-bigint",
-  "num-modular/num-bigint",
-  "num-modular/num-integer",
-  "num-modular/num-traits"
-]
+big-int = ["dep:num-bigint"]
 big-table = []
 
 [profile.release]
