@@ -60,14 +60,16 @@ big-int = [
 dashu-int = ["dep:dashu-int", "dep:dashu-base"]
 big-table = []
 
-# NOTE: temporary local-development patch. dashu-int's num-modular support
-# (Reducer<UBig> for MontgomeryRepr, ModularSymbols for UBig, Pow<u32>) is not
-# published yet; switch the dependency back to a crates.io version once
+# TEMPORARY patch, to be dropped before merging: dashu-int's num-modular
+# support (Reducer<UBig> for MontgomeryRepr, ModularSymbols for UBig,
+# Pow<u32>, CheckedAdd, and an Integer::mod_floor fix) lives on the
+# num-modular-support branch of dashu, which this PR depends on. Replace
+# this section with a plain version bump once that branch is merged and
 # dashu-int releases it. The impls there are always compiled in - dashu-int
 # has no num-modular feature.
 [patch.crates-io]
-dashu-base = { path = "/home/jacobz/dashu/base" }
-dashu-int = { path = "/home/jacobz/dashu/integer" }
+dashu-base = { git = "https://github.com/cmpute/dashu", branch = "num-modular-support" }
+dashu-int = { git = "https://github.com/cmpute/dashu", branch = "num-modular-support" }
 
 [profile.release]
 lto = "fat"
