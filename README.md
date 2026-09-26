@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/num-prime.svg)](https://crates.io/crates/num-prime)
 [![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/uutils/num-prime?utm_source=badge)
 [![Discord](https://img.shields.io/badge/discord-join-7289DA.svg?logo=discord&longCache=true&style=flat)](https://discord.gg/wQVJbvJ)
-[![License](http://img.shields.io/badge/license-Apache%202-blue.svg)](https://github.com/uutils/num-prime/blob/main/LICENSE)
+[![License](https://img.shields.io/crates/l/num-prime)](COPYRIGHT)
 [![dependency status](https://deps.rs/repo/github/uutils/num-prime/status.svg)](https://deps.rs/repo/github/uutils/num-prime)
 
 [![CodeCov](https://codecov.io/gh/uutils/num-prime/branch/main/graph/badge.svg)](https://codecov.io/gh/uutils/num-prime)
