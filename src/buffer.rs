@@ -10,7 +10,8 @@
 //! but it will be efficient enough for most applications.
 //!
 
-use crate::factor::{pollard_rho, trial_division, RhoSeed};
+use crate::factor::{pollard_rho, trial_division};
+use crate::splitmix64::SplitMix64;
 use crate::nt_funcs::{
     factorize128, is_prime64, next_prime, nth_prime_bounds, nth_prime_est, prev_prime,
 };
@@ -233,7 +234,7 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
 
         // try to get a factor using pollard_rho with 4x4 trials
         let below64 = target.to_u64().is_some();
-        let mut rng = RhoSeed::new(
+        let mut rng = SplitMix64::new(
             target
                 .to_u64()
                 .unwrap_or_else(|| (target % T::from_u64(u64::MAX).unwrap()).to_u64().unwrap()),
