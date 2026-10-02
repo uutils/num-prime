@@ -265,15 +265,17 @@ checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 [[package]]
 name = "dashu-base"
 version = "0.6.1"
-source = "git+https://github.com/cmpute/dashu?branch=num-modular-support#29a1fb26647db521e1015f16521e5428b55fa58b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "861a614e79388a4c72aa66b0bdabc91e3a4f30d53e0c8d962953e207d75884d0"
 dependencies = [
  "num-modular",
 ]
 
 [[package]]
 name = "dashu-int"
-version = "0.6.1"
-source = "git+https://github.com/cmpute/dashu?branch=num-modular-support#29a1fb26647db521e1015f16521e5428b55fa58b"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64a0490b40a6a3f6427970035f17f76fd59c01d3cd9f9140809672863a0d64c8"
 dependencies = [
  "cfg-if",
  "dashu-base",
