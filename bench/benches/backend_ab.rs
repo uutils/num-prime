@@ -147,7 +147,6 @@ pub fn bench_backend_prime_gen(c: &mut Criterion) {
 /// types, explaining the end-to-end differences above.
 pub fn bench_backend_kernels(c: &mut Criterion) {
     use num_integer::Integer as _;
-    use num_modular::Reducer as _;
 
     // moduli and bases at three widths, parsed once
     let cases: [(&str, &str); 3] = [

@@ -70,13 +70,17 @@ fn is_prime_strong_pseudoprime() {
 fn factorize_thirteen_similar_primes() {
     let target = parse(THIRTEEN_PRIMES);
     let buffer = NaiveBuffer::new();
-    let (factors, remainder) = buffer.factors(as_ubigmint(&target).clone(), None);
+    let (factors, remainder) = buffer.factors(as_ubigmint(&target), None);
     assert_eq!(remainder, None);
     assert_eq!(factors.values().sum::<usize>(), 13);
     let mut product = UBig::ONE;
     for (f, e) in factors.iter() {
         let f_plain = f.value();
-        assert!(is_prime(&f.clone(), None).probably(), "{} is not prime", f_plain);
+        assert!(
+            is_prime(&f.clone(), None).probably(),
+            "{} is not prime",
+            f_plain
+        );
         product *= f_plain.pow(*e);
     }
     assert_eq!(product, target);
