@@ -384,6 +384,16 @@ impl<T: Integer + Clone + FromPrimitive, R: Reducer<T>> FromPrimitive for Mint<T
     fn from_u64(n: u64) -> Option<Self> {
         T::from_u64(n).map(|v| Self(Left(v)))
     }
+    // override the default implementations, they return None when the input
+    // doesn't fit u64/i64 although the wrapped T can represent it
+    #[inline]
+    fn from_i128(n: i128) -> Option<Self> {
+        T::from_i128(n).map(|v| Self(Left(v)))
+    }
+    #[inline]
+    fn from_u128(n: u128) -> Option<Self> {
+        T::from_u128(n).map(|v| Self(Left(v)))
+    }
 }
 
 impl<T: Integer + Clone + ToPrimitive, R: Reducer<T> + Clone> ToPrimitive for Mint<T, R> {
