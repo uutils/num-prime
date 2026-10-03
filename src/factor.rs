@@ -127,8 +127,13 @@ where
             return (None, i);
         }
 
-        // FIXME: optimize abs_diff for montgomery form if we are going to use the abs_diff in the std lib
-        let diff = if b > a { &b - &a } else { &a - &b }; // abs_diff
+        // The two walkers cannot be ordered in Montgomery form without
+        // paying two `residue()` reductions (a full REDC each) per step, and
+        // the sign of the difference is irrelevant to the gcd accumulated
+        // below: gcd(n, -t) = gcd(n, t). `subm` is the modular subtraction,
+        // so it is also total for the unsigned big-integer instantiations,
+        // where a plain subtraction could underflow.
+        let diff = a.clone().subm(&b, target);
         z = z.mulm(&diff, target);
         if z.is_zero() {
             // the factor is missed by a combined GCD, do backtracing
