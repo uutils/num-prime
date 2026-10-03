@@ -127,8 +127,9 @@ where
             return (None, i);
         }
 
-        // FIXME: optimize abs_diff for montgomery form if we are going to use the abs_diff in the std lib
-        let diff = if b > a { &b - &a } else { &a - &b }; // abs_diff
+        // gcd(n, -t) = gcd(n, t), so no abs-diff: ordering Montgomery forms
+        // would need a residue() per walker, and `subm` cannot underflow.
+        let diff = a.clone().subm(&b, target);
         z = z.mulm(&diff, target);
         if z.is_zero() {
             // the factor is missed by a combined GCD, do backtracing
