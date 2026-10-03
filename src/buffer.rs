@@ -279,6 +279,26 @@ where
     split_wide(target)
 }
 
+#[cfg(all(feature = "dashu-int", not(feature = "big-int")))]
+fn split_wide<T: PrimalityBase>(target: &T) -> Option<Vec<T>>
+where
+    for<'r> &'r T: PrimalityRefBase<T>,
+{
+    use crate::dashu::{divisor, from_ubig, to_ubig, Split};
+
+    let wide = to_ubig(target);
+    Some(match divisor(&wide) {
+        Split::Divisor(d) => {
+            let d: T = from_ubig(&d);
+            vec![target.clone() / d.clone(), d]
+        }
+        Split::Power(root, exp) => {
+            let root: T = from_ubig(&root);
+            vec![root; exp as usize]
+        }
+    })
+}
+
 #[cfg(feature = "big-int")]
 fn split_wide<T: PrimalityBase>(target: &T) -> Option<Vec<T>>
 where
@@ -299,7 +319,7 @@ where
     })
 }
 
-#[cfg(not(feature = "big-int"))]
+#[cfg(not(any(feature = "big-int", feature = "dashu-int")))]
 fn split_wide<T: PrimalityBase>(_target: &T) -> Option<Vec<T>>
 where
     for<'r> &'r T: PrimalityRefBase<T>,

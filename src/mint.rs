@@ -81,6 +81,20 @@ macro_rules! forward_uops_ref {
     };
 }
 
+impl<T: Integer + Clone + num_traits::CheckedAdd, R: Reducer<T> + Clone> num_traits::CheckedAdd
+    for Mint<T, R>
+{
+    #[inline]
+    fn checked_add(&self, rhs: &Self) -> Option<Self> {
+        // candidates walked by next_prime stay in plain form (Left); a value
+        // already in reduced form has no meaningful checked addition
+        match (&self.0, &rhs.0) {
+            (Left(v1), Left(v2)) => v1.checked_add(v2).map(|v| Self(Left(v))),
+            _ => None,
+        }
+    }
+}
+
 impl<T: Integer + Clone, R: Reducer<T>> PartialEq for Mint<T, R> {
     fn eq(&self, other: &Self) -> bool {
         match (&self.0, &other.0) {
@@ -669,6 +683,22 @@ impl<T: Integer + Clone, R: Reducer<T> + Clone> ModularPow<&Self, &Self> for Min
 }
 
 pub type SmallMint<T> = Mint<T, Montgomery<T>>;
+
+/// A `dashu_int::UBig` integer with fast modular arithmetic, based on
+/// `dashu_int`'s Montgomery reduction.
+///
+/// This is the big-integer backend of this crate when the `dashu-int` feature
+/// is enabled. All operations on an already-reduced value run in Montgomery
+/// form without modular division, which is substantially faster for primality
+/// testing workloads.
+///
+/// As with [`SmallMint`]'s Montgomery reducer, the modulus of any modular
+/// operation must be odd — which holds for every modulus this crate's
+/// algorithms introduce (the odd prime candidates); the prime wheel phases
+/// are computed with plain [`num_integer::Integer::mod_floor`] instead of the
+/// reducing [`Rem`](std::ops::Rem).
+#[cfg(feature = "dashu-int")]
+pub type UBigMint = Mint<dashu_int::UBig, dashu_int::monty::MontgomeryRepr>;
 
 #[cfg(test)]
 #[allow(clippy::op_ref)]
