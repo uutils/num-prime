@@ -1,7 +1,7 @@
 use crate::mint::SmallMint;
 use crate::nt_funcs::{is_prime, is_prime64, next_prime};
 use crate::{PrimalityTestConfig, RandPrime};
-#[cfg(feature = "num-bigint")]
+#[cfg(feature = "big-int")]
 use num_bigint::{BigUint, RandBigInt};
 use rand::Rng;
 
@@ -175,7 +175,7 @@ impl<R: Rng> RandPrime<u128> for R {
     }
 }
 
-#[cfg(feature = "num-bigint")]
+#[cfg(feature = "big-int")]
 impl<R: Rng> RandPrime<BigUint> for R {
     #[inline]
     fn gen_prime(&mut self, bit_size: usize, config: Option<PrimalityTestConfig>) -> BigUint {
@@ -276,7 +276,7 @@ mod tests {
         let p: u128 = rng.gen_safe_prime(128);
         assert!(is_safe_prime(&p).probably());
 
-        #[cfg(feature = "num-bigint")]
+        #[cfg(feature = "big-int")]
         {
             let p: BigUint = rng.gen_prime(512, None);
             assert!(is_prime(&p, None).probably());
@@ -336,7 +336,7 @@ mod tests {
         assert!(is_safe_prime(&p).probably());
         assert_eq!(p.leading_zeros(), 0);
 
-        #[cfg(feature = "num-bigint")]
+        #[cfg(feature = "big-int")]
         {
             let p: BigUint = rng.gen_prime_exact(192, None);
             assert!(is_prime(&p, None).probably());
