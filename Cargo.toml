@@ -9,7 +9,7 @@ Generic and optimized primality test, factorization and various number theoretic
 documentation = "https://docs.rs/num-prime"
 readme = "README.md"
 repository = "https://github.com/uutils/num-prime"
-license = "Apache-2.0"
+license = "MIT OR Apache-2.0"
 keywords = ["bigint", "mathematics", "num", "number-theory", "primes"]
 categories = ["algorithms", "cryptography", "science"]
 
