@@ -11,11 +11,11 @@
 //!
 
 use crate::factor::{pollard_rho, trial_division};
-use crate::splitmix64::SplitMix64;
 use crate::nt_funcs::{
     factorize128, is_prime64, next_prime, nth_prime_bounds, nth_prime_est, prev_prime,
 };
 use crate::primality::{PrimalityBase, PrimalityRefBase};
+use crate::splitmix64::SplitMix64;
 use crate::tables::{SMALL_PRIMES, SMALL_PRIMES_NEXT};
 use crate::traits::{
     FactorizationConfig, Primality, PrimalityTestConfig, PrimalityUtils, PrimeBuffer,
