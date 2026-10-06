@@ -1096,7 +1096,9 @@ where
     }
 
     // then moving along the wheel
-    let mut i = (target % T::from_u8(WHEEL_SIZE).unwrap()).to_u8().unwrap();
+    let mut i = (target.mod_floor(&T::from_u8(WHEEL_SIZE).unwrap()))
+        .to_u8()
+        .unwrap();
     let mut t = target.clone();
     loop {
         let offset = WHEEL_NEXT[i as usize];
@@ -1139,7 +1141,7 @@ where
     }
 
     // then moving along the wheel
-    let mut i = (target % T::from_u16(WHEEL_SIZE).unwrap())
+    let mut i = (target.mod_floor(&T::from_u16(WHEEL_SIZE).unwrap()))
         .to_u16()
         .unwrap();
     let mut t = target.clone();
@@ -1184,7 +1186,9 @@ where
     }
 
     // then moving along the wheel
-    let mut i = (target % T::from_u8(WHEEL_SIZE).unwrap()).to_u8().unwrap();
+    let mut i = (target.mod_floor(&T::from_u8(WHEEL_SIZE).unwrap()))
+        .to_u8()
+        .unwrap();
     let mut t = target.clone();
     loop {
         let offset = WHEEL_PREV[i as usize];
@@ -1229,7 +1233,7 @@ where
     }
 
     // then moving along the wheel
-    let mut i = (target % T::from_u16(WHEEL_SIZE).unwrap())
+    let mut i = (target.mod_floor(&T::from_u16(WHEEL_SIZE).unwrap()))
         .to_u16()
         .unwrap();
     let mut t = target.clone();
