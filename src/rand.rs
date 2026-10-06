@@ -2,12 +2,12 @@ use crate::mint::SmallMint;
 use crate::nt_funcs::{is_prime, is_prime64, next_prime};
 use crate::{PrimalityTestConfig, RandPrime};
 #[cfg(feature = "big-int")]
-use num_bigint::{BigUint, RandBigInt};
-use rand::Rng;
+use num_bigint::{BigUint, BigRng010};
+use rand::RngExt;
 
 macro_rules! impl_randprime_prim {
     ($($T:ty)*) => {$(
-        impl<R: Rng> RandPrime<$T> for R {
+        impl<R: RngExt> RandPrime<$T> for R {
             #[inline]
             fn gen_prime(&mut self, bit_size: usize, _: Option<PrimalityTestConfig>) -> $T {
                 if bit_size > (<$T>::BITS as usize) {
@@ -17,7 +17,7 @@ macro_rules! impl_randprime_prim {
                 assert!(bit_size >= 2, "The given bit size is too small to hold a prime!");
 
                 loop {
-                    let t: $T = self.gen();
+                    let t: $T = self.random();
                     let t = (t >> (<$T>::BITS - bit_size as u32)) | 1; // filter even numbers
                     if is_prime64(t as u64) {
                         break t
@@ -41,7 +41,7 @@ macro_rules! impl_randprime_prim {
                 assert!(bit_size >= 2, "The given bit size is too small to hold a prime!");
 
                 loop {
-                    let t: $T = self.gen();
+                    let t: $T = self.random();
                     let t = (t >> (<$T>::BITS - bit_size as u32)) | 1 | (1 << (bit_size - 1));
                     if is_prime64(t as u64) {
                         break t
@@ -92,7 +92,7 @@ macro_rules! impl_randprime_prim {
 }
 impl_randprime_prim!(u8 u16 u32 u64);
 
-impl<R: Rng> RandPrime<u128> for R {
+impl<R: RngExt> RandPrime<u128> for R {
     #[inline]
     fn gen_prime(&mut self, bit_size: usize, config: Option<PrimalityTestConfig>) -> u128 {
         assert!(
@@ -106,7 +106,7 @@ impl<R: Rng> RandPrime<u128> for R {
         );
 
         loop {
-            let t: u128 = self.gen();
+            let t: u128 = self.random();
             let t = (t >> (u128::BITS - bit_size as u32)) | 1; // filter even numbers
             if is_prime(&SmallMint::from(t), config).probably() {
                 break t;
@@ -133,7 +133,7 @@ impl<R: Rng> RandPrime<u128> for R {
         );
 
         loop {
-            let t: u128 = self.gen();
+            let t: u128 = self.random();
             let t = (t >> (u128::BITS - bit_size as u32)) | 1 | (1 << (bit_size - 1));
             if is_prime(&SmallMint::from(t), config).probably() {
                 break t;
@@ -176,7 +176,7 @@ impl<R: Rng> RandPrime<u128> for R {
 }
 
 #[cfg(feature = "big-int")]
-impl<R: Rng> RandPrime<BigUint> for R {
+impl<R: RngExt> RandPrime<BigUint> for R {
     #[inline]
     fn gen_prime(&mut self, bit_size: usize, config: Option<PrimalityTestConfig>) -> BigUint {
         // Below two bits there is no prime to return within the width.
@@ -254,7 +254,7 @@ mod tests {
 
     #[test]
     fn rand_prime() {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         // test random prime generation for each size
         let p: u8 = rng.gen_prime(8, None);
@@ -297,7 +297,7 @@ mod tests {
     /// Draw enough times to make the boundary a certainty instead.
     #[test]
     fn rand_prime_stays_within_the_bit_size() {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..50_000 {
             let p: u16 = rng.gen_prime(12, None);
             assert!(p < (1 << 12), "{} is wider than 12 bits", p);
@@ -312,7 +312,7 @@ mod tests {
 
     #[test]
     fn rand_prime_exact() {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         // test exact size prime generation
         let p: u8 = rng.gen_prime_exact(8, None);

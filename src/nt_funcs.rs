@@ -1354,6 +1354,7 @@ mod tests {
     use super::*;
     use rand::{prelude::SliceRandom, random};
     use std::iter::FromIterator;
+    use rand::prelude::IndexedRandom;
 
     /// 529341446939 * 529341447079 * 529341447139. SQUFOF and Hart's one-line
     /// both cost O(n^(1/4)), so rotating into them on a 117-bit target used to
@@ -1405,7 +1406,7 @@ mod tests {
         assert!(!is_prime64(4_100_599_722_623_587));
 
         // ensure no factor for 100 random primes
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..100 {
             let x = random();
             if !is_prime64(x) {
