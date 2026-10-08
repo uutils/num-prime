@@ -33,7 +33,7 @@ num-bigint = { version = "0.4.6", features = ["rand"], optional = true }
 num-integer = "0.1.46"
 num-modular = { version = "0.6.2", features = ["num-bigint"] }
 num-traits = "0.2.18"
-rand = "0.8.6"
+rand = "0.10.0"
 
 [features]
 default = ["big-int", "big-table"]
