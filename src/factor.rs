@@ -7,17 +7,290 @@
 
 // XXX: make the factorization method resumable? Maybe let all of them returns a Future
 
+#[cfg(feature = "big-table")]
+use crate::tables::{SMALL_PRIMES, SMALL_PRIMES_INV};
 use crate::traits::ExactRoots;
 use num_integer::{Integer, Roots};
-use num_modular::{ModularCoreOps, ModularUnaryOps};
-use num_traits::{CheckedAdd, CheckedMul, FromPrimitive, NumRef, RefNum};
+use num_modular::{DivExact, ModularCoreOps, ModularUnaryOps, PreModInv};
+use num_traits::{CheckedAdd, CheckedMul, FromPrimitive, NumRef, PrimInt, RefNum, ToPrimitive};
 use std::collections::BTreeMap;
+
+/// Get the precomputed modular inverse of the prime at position `i` of the iterator.
+///
+/// The prime iterator is not guaranteed to follow [`SMALL_PRIMES`], so the alignment
+/// is verified before the precomputed value is used. Returns `None` if the build
+/// doesn't provide the precomputed inverses or if `p` is not covered by them.
+#[cfg(feature = "big-table")]
+#[inline]
+fn small_prime_inv(i: usize, p: u64) -> Option<&'static PreModInv<u64>> {
+    // the entry for 2 is a placeholder: factor 2 must be handled by bit tests
+    if p != 2 && SMALL_PRIMES.get(i).is_some_and(|&q| u64::from(q) == p) {
+        SMALL_PRIMES_INV.get(i)
+    } else {
+        None
+    }
+}
+
+#[cfg(not(feature = "big-table"))]
+#[inline]
+fn small_prime_inv(_i: usize, _p: u64) -> Option<&'static PreModInv<u64>> {
+    None
+}
+
+/// Residual of trial division that fits a single word.
+///
+/// The divisibility check by an odd prime is a multiplication against the
+/// precomputed modular inverse ([`DivExact`]) when available, and falls back
+/// to a plain remainder check otherwise.
+trait WordResidual: PrimInt + From<u64> {
+    /// Remove one instance of the odd prime `p` if it divides `self`.
+    /// `pre` must be the precomputed inverse of `p` when given.
+    fn div_exact_prime(self, p: u64, pre: Option<&PreModInv<u64>>) -> Option<Self>;
+}
+
+impl WordResidual for u64 {
+    #[inline]
+    fn div_exact_prime(self, p: u64, pre: Option<&PreModInv<u64>>) -> Option<Self> {
+        match pre {
+            Some(pre) => DivExact::div_exact(self, p, pre),
+            None => (self % p == 0).then(|| self / p),
+        }
+    }
+}
+
+impl WordResidual for u128 {
+    #[inline]
+    fn div_exact_prime(self, p: u64, pre: Option<&PreModInv<u64>>) -> Option<Self> {
+        match pre {
+            // the 128-bit residual is handled as DoubleWord, the check costs
+            // two multiplications instead of a software division
+            Some(pre) => DivExact::div_exact(self, p, pre),
+            None => (self % u128::from(p) == 0).then(|| self / u128::from(p)),
+        }
+    }
+}
+
+/// Run trial division on a residual that fits the single word type `W`.
+///
+/// `tsqrt` must be the square root bound derived from the original target (not
+/// the shrinking residual), so that the `Ok`/`Err` split matches the wide path.
+/// `inv_offset` is the position of the first prime of `primes` in the original
+/// iterator, used to look up the precomputed inverses.
+fn word_trial_division<W: WordResidual>(
+    mut residual: W,
+    primes: impl Iterator<Item = u64>,
+    tsqrt: W,
+    limit: Option<u64>,
+    inv_offset: usize,
+    result: &mut BTreeMap<u64, usize>,
+) -> (bool, W) {
+    let lim = match limit {
+        Some(l) => tsqrt.min(<W as From<u64>>::from(l)),
+        None => tsqrt,
+    };
+
+    let mut factored = false;
+    for (i, p) in primes.enumerate() {
+        if <W as From<u64>>::from(p) > tsqrt {
+            factored = true;
+        }
+        if <W as From<u64>>::from(p) > lim {
+            break;
+        }
+
+        let mut exp = 0usize;
+        if p == 2 {
+            // the precomputed inverses only cover odd primes
+            let tz = residual.trailing_zeros();
+            residual = residual >> (tz as usize);
+            exp = tz as usize;
+        } else {
+            while let Some(q) = residual.div_exact_prime(p, small_prime_inv(inv_offset + i, p)) {
+                residual = q;
+                exp += 1;
+            }
+        }
+        if exp > 0 {
+            *result.entry(p).or_insert(0) += exp;
+        }
+        if residual == <W as From<u64>>::from(1) {
+            factored = true;
+            break;
+        }
+    }
+    (factored, residual)
+}
+
+/// Run trial division on a residual that doesn't fit a `u128`.
+///
+/// The primes are grouped into batches whose product fits a `u64`. Since
+/// `p | residual` iff `p | (residual mod batch_product)`, one division of the
+/// wide residual per batch replaces one division per prime: the divisibility
+/// checks run on the single-word remainder (via [`DivExact`] with the
+/// precomputed inverses when available), and the residual itself is only
+/// divided when a prime actually divides it.
+fn wide_trial_division<T>(
+    target: T,
+    primes: impl Iterator<Item = u64>,
+    tsqrt64: Option<u64>,
+    tsqrt128: Option<u128>,
+    limit: Option<u64>,
+    result: &mut BTreeMap<u64, usize>,
+) -> (bool, T)
+where
+    T: Integer + Clone + Roots + NumRef + FromPrimitive + ToPrimitive,
+    for<'r> &'r T: RefNum<T>,
+{
+    let tsqrt = tsqrt64.unwrap_or(u64::MAX);
+    let lim = tsqrt.min(limit.unwrap_or(u64::MAX));
+
+    // the residual remainder for the current batch, recomputed after each hit.
+    // note: mod_floor instead of rem, the Mint backend only supports the
+    // remainder operator for odd divisors (it goes through Montgomery form)
+    let word_residual = |residual: &T, m: &T| -> u64 {
+        if residual < m {
+            residual
+                .to_u64()
+                .expect("residual below the batch product fits u64")
+        } else {
+            residual
+                .mod_floor(m)
+                .to_u64()
+                .expect("remainder below the batch product fits u64")
+        }
+    };
+
+    let mut residual = target;
+    let mut factored = false;
+    let mut iter = primes;
+    let mut pending: Option<(usize, u64)> = None; // prime that didn't fit the last batch
+    let mut batch: Vec<(usize, u64)> = Vec::new();
+    let mut pulled = 0usize; // number of primes taken from the iterator
+
+    'outer: loop {
+        // hand the residual over to the word loops once it fits a word
+        let inv_offset = pending.as_ref().map_or(pulled, |&(pos, _)| pos);
+        if let Some(r) = residual.to_u64() {
+            let (f, q) = word_trial_division(
+                r,
+                pending.into_iter().map(|(_, p)| p).chain(&mut iter),
+                tsqrt,
+                limit,
+                inv_offset,
+                result,
+            );
+            return (factored || f, T::from_u64(q).unwrap());
+        }
+        if let Some(r) = residual.to_u128() {
+            let (f, q) = word_trial_division(
+                r,
+                pending.into_iter().map(|(_, p)| p).chain(&mut iter),
+                tsqrt128.unwrap_or(u128::MAX),
+                limit,
+                inv_offset,
+                result,
+            );
+            return (factored || f, T::from_u128(q).unwrap());
+        }
+
+        // group the next primes while their product fits a u64, so that the
+        // batch product can always be converted back through from_u64 (which
+        // every FromPrimitive implementation must properly provide)
+        batch.clear();
+        let mut m: u64 = 1;
+        let mut exhausted = false;
+        let mut stop = false;
+        loop {
+            let (pos, p) = match pending.take() {
+                Some(pp) => pp,
+                None => match iter.next() {
+                    Some(p) => {
+                        pulled += 1;
+                        (pulled - 1, p)
+                    }
+                    None => {
+                        exhausted = true;
+                        break;
+                    }
+                },
+            };
+            if p > tsqrt {
+                factored = true;
+            }
+            if p > lim {
+                stop = true;
+                break;
+            }
+            match m.checked_mul(p) {
+                Some(m2) => {
+                    m = m2;
+                    batch.push((pos, p));
+                }
+                None => {
+                    pending = Some((pos, p));
+                    break;
+                }
+            }
+        }
+
+        if !batch.is_empty() {
+            let m_t = T::from_u64(m).expect("batch product is representable in T");
+            let mut r = word_residual(&residual, &m_t);
+            for &(pos, p) in batch.iter() {
+                let divisible = if p == 2 {
+                    r & 1 == 0
+                } else {
+                    match small_prime_inv(pos, p) {
+                        Some(pre) => DivExact::div_exact(r, p, pre).is_some(),
+                        None => r % p == 0,
+                    }
+                };
+                if !divisible {
+                    continue;
+                }
+
+                // peel all powers of p from the residual, div_rem computes
+                // quotient and remainder in a single pass
+                let p_t = T::from_u64(p).unwrap();
+                let mut exp = 0usize;
+                loop {
+                    let (quo, rem) = residual.div_rem(&p_t);
+                    if !rem.is_zero() {
+                        break;
+                    }
+                    residual = quo;
+                    exp += 1;
+                }
+                if exp > 0 {
+                    *result.entry(p).or_insert(0) += exp;
+                }
+
+                if residual.is_one() {
+                    factored = true;
+                    break 'outer;
+                }
+                r = word_residual(&residual, &m_t);
+            }
+        }
+        if exhausted || stop {
+            break;
+        }
+    }
+    (factored, residual)
+}
 
 /// Find factors by trial division, returns a tuple of the found factors and the residual.
 ///
 /// The target is guaranteed fully factored only if bound * bound > target, where bound = max(primes).
 /// The parameter limit additionally sets the maximum of primes to be tried.
 /// The residual will be Ok(1) or Ok(p) if fully factored.
+///
+/// Divisibility checks run on single words whenever the residual fits one: with the
+/// `big-table` feature they use the precomputed modular inverses (via [`DivExact`]),
+/// otherwise plain remainder checks. For wider residuals, the primes are grouped into
+/// batches whose product fits a `u64`, so that one division of the target per batch
+/// replaces one division per prime, and the target is only divided by the primes that
+/// actually divide it.
 ///
 /// # Examples
 ///
@@ -31,11 +304,9 @@ use std::collections::BTreeMap;
 /// assert_eq!(factors[&5], 1);
 /// assert!(residual.is_ok());
 /// ```
-///
-/// TODO: implement fast check for small primes with `BigInts` in the precomputed table, and skip them in this function
 pub fn trial_division<
     I: Iterator<Item = u64>,
-    T: Integer + Clone + Roots + NumRef + FromPrimitive,
+    T: Integer + Clone + Roots + NumRef + FromPrimitive + ToPrimitive,
 >(
     primes: I,
     target: T,
@@ -44,33 +315,21 @@ pub fn trial_division<
 where
     for<'r> &'r T: RefNum<T>,
 {
-    let tsqrt: T = Roots::sqrt(&target) + T::one();
-    let limit = if let Some(l) = limit {
-        tsqrt.clone().min(T::from_u64(l).unwrap())
-    } else {
-        tsqrt.clone()
-    };
-
-    let mut residual = target;
     let mut result = BTreeMap::new();
-    let mut factored = false;
-    for (p, pt) in primes.map(|p| (p, T::from_u64(p).unwrap())) {
-        if pt > tsqrt {
-            factored = true;
-        }
-        if pt > limit {
-            break;
-        }
 
-        while residual.is_multiple_of(&pt) {
-            residual = residual / &pt;
-            *result.entry(p).or_insert(0) += 1;
-        }
-        if residual.is_one() {
-            factored = true;
-            break;
-        }
+    // zero has no prime factorization, dividing it by primes would never end
+    if target.is_zero() {
+        return (result, Err(target));
     }
+
+    let tsqrt = Roots::sqrt(&target) + T::one();
+    let tsqrt64 = tsqrt.to_u64();
+    let tsqrt128 = tsqrt.to_u128();
+
+    // wide_trial_division hands the residual over to the word loops at its
+    // first iteration when the target already fits a word
+    let (factored, residual) =
+        wide_trial_division(target, primes, tsqrt64, tsqrt128, limit, &mut result);
 
     if factored {
         (result, Ok(residual))
@@ -578,5 +837,94 @@ mod tests {
         assert!(residual.is_err()); // not fully factored
         assert_eq!(factors[&7], 1);
         assert_eq!(residual.unwrap_err(), 143);
+    }
+
+    #[test]
+    fn trial_division_primes_not_from_the_static_table() {
+        // the prime list doesn't follow SMALL_PRIMES (unaligned or duplicated),
+        // the precomputed inverses must not be misapplied on such iterators
+        let primes: Vec<u64> = vec![3, 7, 5, 2, 11, 2, 13];
+        // 2*3*5*7*11*13 = 30030
+        let (factors, residual) = trial_division(primes.into_iter(), 30030u64, None);
+        assert_eq!(residual, Ok(1));
+        for p in [2, 3, 5, 7, 11, 13] {
+            assert_eq!(factors[&p], 1, "exponent of {p}");
+        }
+    }
+
+    #[test]
+    fn trial_division_zero() {
+        // zero has no prime factorization, it must not loop forever
+        let primes: Vec<u64> = vec![2, 3, 5, 7];
+        let (factors, residual) = trial_division(primes.into_iter(), 0u64, None);
+        assert!(factors.is_empty());
+        assert_eq!(residual.unwrap_err(), 0);
+    }
+
+    #[test]
+    fn trial_division_u128() {
+        // 3^41 doesn't fit a u64, the residual is checked as DoubleWord
+        let n = 3u128.pow(41);
+        let (factors, residual) = trial_division([2, 3, 5].into_iter(), n, None);
+        assert_eq!(residual, Ok(1));
+        assert_eq!(factors[&3], 41);
+
+        // a limit below the smallest factor leaves the target unfactored
+        let (factors, residual) = trial_division([2, 3, 5].into_iter(), n, Some(2));
+        assert!(factors.is_empty());
+        assert_eq!(residual, Err(n));
+    }
+
+    #[cfg(feature = "big-int")]
+    #[test]
+    fn trial_division_wide_biguint() {
+        use crate::tables::SMALL_PRIMES;
+        use num_bigint::BigUint;
+        use num_traits::One;
+
+        let primes = || SMALL_PRIMES.iter().map(|&p| u64::from(p));
+
+        // a wide target built from repeated factors of the static table
+        let mut n = BigUint::from(2u8).pow(90);
+        n = &n * BigUint::from(3u8).pow(40);
+        n = &n * BigUint::from(7u8).pow(11);
+        n = &n * BigUint::from(241u8).pow(9);
+        n = &n * BigUint::from(251u8).pow(9);
+        assert!(n.to_u128().is_none());
+
+        let (factors, residual) = trial_division(primes(), n, None);
+        assert_eq!(residual, Ok(BigUint::one()));
+        assert_eq!(factors[&2], 90);
+        assert_eq!(factors[&3], 40);
+        assert_eq!(factors[&7], 11);
+        assert_eq!(factors[&241], 9);
+        assert_eq!(factors[&251], 9);
+
+        // a limit leaves the factors above it in the residual
+        let n = BigUint::from(2u8).pow(90)
+            * BigUint::from(3u8).pow(40)
+            * BigUint::from(7u8).pow(11)
+            * BigUint::from(241u8).pow(9)
+            * BigUint::from(251u8).pow(9);
+        let (factors, residual) = trial_division(primes(), n.clone(), Some(100));
+        assert_eq!(
+            residual,
+            Err(BigUint::from(241u8).pow(9) * BigUint::from(251u8).pow(9))
+        );
+        assert_eq!(factors[&2], 90);
+        assert_eq!(factors[&3], 40);
+        assert_eq!(factors[&7], 11);
+
+        // the residual drops below u64 in the middle of a batch: 2 and 251
+        // are peeled from the wide target while the batch is still running,
+        // leaving 3^39 which is re-reduced against the same batch product
+        let m =
+            BigUint::from(2u8).pow(64) * BigUint::from(251u8).pow(9) * BigUint::from(3u8).pow(39);
+        let (factors, residual) = trial_division([2, 5, 251, 3].into_iter(), m, None);
+        assert_eq!(residual, Ok(BigUint::one()));
+        assert_eq!(factors[&2], 64);
+        assert_eq!(factors[&3], 39);
+        assert_eq!(factors[&251], 9);
+        assert!(!factors.contains_key(&5));
     }
 }
