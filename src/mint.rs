@@ -692,6 +692,20 @@ mod tests {
         assert_eq!(a + b, 27.into());
     }
 
+    // --- FromPrimitive on 128 bit inputs ---
+    #[test]
+    fn test_from_128bit_above_u64() {
+        use num_traits::FromPrimitive as _;
+
+        // the default FromPrimitive implementations return None for values
+        // beyond 64 bits, the overrides must accept what T can represent
+        let v = u128::from(u64::MAX) * 3 + 7;
+        assert_eq!(SmallMint::<u128>::from_u128(v).unwrap().value(), v);
+
+        let i = 4 * i128::from(i64::MAX) + 11;
+        assert_eq!(SmallMint::<u128>::from_i128(i).unwrap().value(), i as u128);
+    }
+
     // --- Sub, Mul, Div, Rem operators ---
     #[test]
     fn test_sub() {
