@@ -166,46 +166,24 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
 
     /// Factorize an integer until all prime factors are found.
     ///
-    /// Trial division only runs once against the primes in the buffer, then
-    /// the cofactors that resisted the (randomized) splitting attempts are
-    /// retried with fresh budgets until the target is fully factorized.
+    /// Trial division runs only once, then the cofactors that resisted the
+    /// splitting attempts are retried until the target is fully factorized.
     fn factorize<T: PrimalityBase>(&self, target: T) -> BTreeMap<T, usize>
     where
         for<'r> &'r T: PrimalityRefBase<T>,
     {
-        // shortcut if the target is in u128 range
-        if let Some(x) = target.to_u128() {
-            return factorize128(x)
-                .into_iter()
-                .map(|(k, v)| (T::from_u128(k).unwrap(), v))
-                .collect();
-        }
+        // the trial division pass only depends on the prime buffer, which
+        // doesn't change while factorizing, so it runs once; the retries only
+        // touch the cofactors that resisted so far
+        let (mut result, remainder) = self.factors(target, None);
+        let mut todo = remainder.unwrap_or_default();
 
-        // Trial division only needs to run once: its result only depends on
-        // the prime buffer, which doesn't change while factorizing. Retries
-        // only touch the cofactors that resisted so far.
-        let config = FactorizationConfig::default();
-        let (found, factored) = trial_division(self.iter().copied(), target, config.td_limit);
-        let mut result: BTreeMap<T, usize> = found
-            .into_iter()
-            .map(|(k, v)| (T::from_u64(k).unwrap(), v))
-            .collect();
-
-        // disable trial division when finding divisor
-        let mut config = config;
-        config.td_limit = Some(0);
-        match factored {
-            Ok(res) => {
-                if !res.is_one() {
-                    result.insert(res, 1);
-                }
-            }
-            Err(res) => {
-                let mut todo = vec![res];
-                while !todo.is_empty() {
-                    todo = split_cofactors(self, &mut result, todo, &config);
-                }
-            }
+        // the rho seed derives from the target, a retry with the same config
+        // would repeat identical work, so every round advances the seed
+        let mut config = FactorizationConfig::default();
+        while !todo.is_empty() {
+            config.rho_seed = config.rho_seed.wrapping_add(1);
+            todo = split_cofactors(self, &mut result, todo, &config);
         }
         result
     }
@@ -245,7 +223,8 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
         let mut rng = SplitMix64::new(
             target
                 .to_u64()
-                .unwrap_or_else(|| (target % T::from_u64(u64::MAX).unwrap()).to_u64().unwrap()),
+                .unwrap_or_else(|| (target % T::from_u64(u64::MAX).unwrap()).to_u64().unwrap())
+                .wrapping_add(config.rho_seed),
         );
         while config.rho_trials > 0 {
             let (start, offset) = if below64 {
@@ -278,10 +257,49 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
 /// on every step, so [`crate::montgomery`] keeps the modulus in Montgomery
 /// form instead; it also peels off perfect powers, which Pollard's rho cannot
 /// split. Returns `None` when neither applies.
+// Test hooks to exercise the retry paths: with the real splitters, a wide
+// cofactor either splits or runs unbounded, so a split failure cannot be
+// produced naturally. When armed, split_composite fails for targets of the
+// given bit length until the failure budget is exhausted.
+#[cfg(all(test, feature = "big-int"))]
+mod split_failure_hook {
+    use crate::traits::BitTest;
+    use core::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+
+    static BITS: AtomicUsize = AtomicUsize::new(0);
+    static LEFT: AtomicU32 = AtomicU32::new(0);
+
+    pub fn arm(bits: usize, failures: u32) {
+        BITS.store(bits, Ordering::Relaxed);
+        LEFT.store(failures, Ordering::Relaxed);
+    }
+
+    pub fn left() -> u32 {
+        LEFT.load(Ordering::Relaxed)
+    }
+
+    pub fn should_fail<T: BitTest>(target: &T) -> bool {
+        let bits = BITS.load(Ordering::Relaxed);
+        if bits == 0 || target.bits() != bits {
+            return false;
+        }
+        let left = LEFT.load(Ordering::Relaxed);
+        if left == 0 {
+            return false;
+        }
+        LEFT.store(left - 1, Ordering::Relaxed);
+        true
+    }
+}
+
 fn split_composite<T: PrimalityBase>(target: &T) -> Option<Vec<T>>
 where
     for<'r> &'r T: PrimalityRefBase<T>,
 {
+    #[cfg(all(test, feature = "big-int"))]
+    if split_failure_hook::should_fail(target) {
+        return None;
+    }
     if let Some(narrow) = target.to_u128() {
         let mut factors = Vec::new();
         for (factor, exp) in crate::nt_funcs::factorize128(narrow) {
@@ -322,16 +340,16 @@ where
 
 /// Split the remaining cofactors against the accumulated factorization result.
 ///
-/// Every cofactor is checked for primality, split by the specialized paths, or
-/// handed to [`PrimeBufferExt::divisor`] with its own budget: a shared budget
-/// is exhausted by the first splits and every remaining composite would then
-/// be reported as a failure. The cofactors that resist are returned, so that
-/// the caller can retry them with fresh budgets (the splitting attempts are
-/// randomized, a cofactor that resisted once usually splits on a retry).
+/// Each cofactor is primality-checked, split by the specialized paths, or
+/// handed to [`PrimeBufferExt::divisor`] with its own budget (a shared budget
+/// is exhausted by the first splits). The cofactors that still resist are
+/// returned, so callers can retry them with an advanced [`FactorizationConfig::rho_seed`]:
+/// the divisor trials are seeded from the target, so only a changed seed makes
+/// a retry do different work.
 fn split_cofactors<B, T>(
     buffer: &B,
     result: &mut BTreeMap<T, usize>,
-    todo: Vec<T>,
+    mut todo: Vec<T>,
     config: &FactorizationConfig,
 ) -> Vec<T>
 where
@@ -340,7 +358,6 @@ where
     for<'r> &'r T: PrimalityRefBase<T>,
 {
     let mut failed = Vec::new();
-    let mut todo = todo;
     while let Some(target) = todo.pop() {
         if buffer
             .is_prime(&target, Some(config.primality_config))
@@ -684,7 +701,7 @@ mod tests {
         assert_eq!(result[&11], 1);
     }
 
-    #[cfg(feature = "num-bigint")]
+    #[cfg(feature = "big-int")]
     #[test]
     fn factorize_wide_number() {
         let target = BigUint::from_str(THIRTEEN_PRIMES).unwrap();
@@ -703,7 +720,7 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "num-bigint")]
+    #[cfg(feature = "big-int")]
     #[test]
     fn factorize_wide_number_with_small_factors() {
         // 2^70 * 3^5 * 5 * 340282366920938463463374607431768211507
@@ -722,6 +739,27 @@ mod tests {
             factorization[&BigUint::from_str("340282366920938463463374607431768211507").unwrap()],
             1
         );
+    }
+
+    #[cfg(feature = "big-int")]
+    #[test]
+    fn factorize_retries_failed_splits() {
+        // three 44-bit primes (132 bits): wider than the u128 shortcut, and
+        // the seed derived from this product makes every budgeted rho trial
+        // miss, so both injected failures have to be recovered by retries
+        const PRIMES: [u64; 3] = [16_062_708_916_519, 13_357_226_209_849, 14_258_346_566_207];
+        let target: BigUint = PRIMES.iter().map(|&p| BigUint::from(p)).product();
+        let buffer = NaiveBuffer::new();
+
+        split_failure_hook::arm(crate::traits::BitTest::bits(&target), 2);
+        let factorization = buffer.factorize(target.clone());
+
+        let product = factorization
+            .iter()
+            .fold(BigUint::from(1u8), |acc, (f, e)| acc * f.pow(*e as u32));
+        assert_eq!(product, target);
+        assert_eq!(factorization.len(), 3);
+        assert_eq!(split_failure_hook::left(), 0);
     }
 
     #[test]

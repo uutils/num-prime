@@ -145,6 +145,11 @@ pub struct FactorizationConfig {
 
     /// Number of trials with Pollard's rho method
     pub rho_trials: usize,
+
+    /// Offset added to the seed of the Pollard's rho generator. The seed is
+    /// derived from the target, so a run is reproducible; advance this value
+    /// to make a run split differently (the factorization retries do).
+    pub rho_seed: u64,
 }
 
 impl Default for FactorizationConfig {
@@ -156,6 +161,7 @@ impl Default for FactorizationConfig {
             primality_config: PrimalityTestConfig::default(),
             td_limit: Some(THRESHOLD_DEFAULT_TD),
             rho_trials: 4,
+            rho_seed: 0,
         }
     }
 }
