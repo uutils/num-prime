@@ -1,3 +1,5 @@
+# spell-checker:ignore primality bitvec codegen
+
 [package]
 name = "num-prime"
 version = "0.6.1"
