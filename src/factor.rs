@@ -12,7 +12,7 @@ use crate::tables::{SMALL_PRIMES, SMALL_PRIMES_INV};
 use crate::traits::ExactRoots;
 use num_integer::{Integer, Roots};
 use num_modular::{DivExact, ModularCoreOps, ModularUnaryOps, PreModInv};
-use num_traits::{CheckedAdd, CheckedMul, FromPrimitive, NumRef, PrimInt, RefNum, ToPrimitive};
+use num_traits::{CheckedAdd, CheckedMul, FromPrimitive, NumRef, RefNum, ToPrimitive};
 use std::collections::BTreeMap;
 
 /// Get the precomputed modular inverse of the prime at position `i` of the iterator.
@@ -37,63 +37,17 @@ fn small_prime_inv(_i: usize, _p: u64) -> Option<&'static PreModInv<u64>> {
     None
 }
 
-/// Residual of trial division that fits a single word.
-///
-/// The divisibility check by an odd prime is a multiplication against the
-/// precomputed modular inverse ([`DivExact`]) when available, and falls back
-/// to a plain remainder check otherwise.
-trait WordResidual: PrimInt + From<u64> {
-    /// Remove one instance of the odd prime `p` if it divides `self`.
-    /// `pre` must be the precomputed inverse of `p` when given.
-    fn div_exact_prime(self, p: u64, pre: Option<&PreModInv<u64>>) -> Option<Self>;
-}
-
-impl WordResidual for u64 {
-    #[inline]
-    fn div_exact_prime(self, p: u64, pre: Option<&PreModInv<u64>>) -> Option<Self> {
-        match pre {
-            Some(pre) => DivExact::div_exact(self, p, pre),
-            None => {
-                if self % p == 0 {
-                    Some(self / p)
-                } else {
-                    None
-                }
-            }
-        }
-    }
-}
-
-impl WordResidual for u128 {
-    #[inline]
-    fn div_exact_prime(self, p: u64, pre: Option<&PreModInv<u64>>) -> Option<Self> {
-        match pre {
-            // the 128-bit residual is handled as DoubleWord, the check costs
-            // two multiplications instead of a software division
-            Some(pre) => DivExact::div_exact(self, p, pre),
-            None => {
-                let p = u128::from(p);
-                if self % p == 0 {
-                    Some(self / p)
-                } else {
-                    None
-                }
-            }
-        }
-    }
-}
-
-/// Run trial division on a residual that fits the single word type `W`.
+/// Finish trial division after a wide residual shrinks to `u64`.
 ///
 /// `inv_offset` is the position of the first prime of `primes` in the original
 /// iterator, used to look up the precomputed inverses.
-fn word_trial_division<W: WordResidual>(
-    mut residual: W,
+fn trial_division_u64(
+    mut residual: u64,
     primes: impl Iterator<Item = u64>,
     limit: Option<u64>,
     inv_offset: usize,
     result: &mut BTreeMap<u64, usize>,
-) -> W {
+) -> u64 {
     let lim = limit.unwrap_or(u64::MAX);
     for (i, p) in primes.enumerate() {
         if p > lim {
@@ -104,10 +58,22 @@ fn word_trial_division<W: WordResidual>(
         if p == 2 {
             // the precomputed inverses only cover odd primes
             let tz = residual.trailing_zeros();
-            residual = residual >> (tz as usize);
+            residual >>= tz as usize;
             exp = tz as usize;
         } else {
-            while let Some(q) = residual.div_exact_prime(p, small_prime_inv(inv_offset + i, p)) {
+            let inv = small_prime_inv(inv_offset + i, p);
+            loop {
+                let next = match inv {
+                    Some(inv) => DivExact::div_exact(residual, p, inv),
+                    None => {
+                        if residual % p == 0 {
+                            Some(residual / p)
+                        } else {
+                            None
+                        }
+                    }
+                };
+                let Some(q) = next else { break };
                 residual = q;
                 exp += 1;
             }
@@ -115,14 +81,14 @@ fn word_trial_division<W: WordResidual>(
         if exp > 0 {
             *result.entry(p).or_insert(0) += exp;
         }
-        if residual == <W as From<u64>>::from(1) {
+        if residual == 1 {
             break;
         }
     }
     residual
 }
 
-/// Run trial division on a residual that doesn't fit a `u128`.
+/// Run batched trial division on the portion of a wide target above `u64`.
 ///
 /// The primes are grouped into batches whose product fits a `u64`. Since
 /// `p | residual` iff `p | (residual mod batch_product)`, one division of the
@@ -164,10 +130,10 @@ where
     let mut pulled = 0usize; // number of primes taken from the iterator
 
     'outer: loop {
-        // hand the residual over to the word loops once it fits a word
+        // hand the residual over to the u64 loop once it fits
         let inv_offset = pending.as_ref().map_or(pulled, |&(pos, _)| pos);
         if let Some(r) = residual.to_u64() {
-            let q = word_trial_division(
+            let q = trial_division_u64(
                 r,
                 pending.into_iter().map(|(_, p)| p).chain(&mut iter),
                 limit,
@@ -175,16 +141,6 @@ where
                 result,
             );
             return T::from_u64(q).unwrap();
-        }
-        if let Some(r) = residual.to_u128() {
-            let q = word_trial_division(
-                r,
-                pending.into_iter().map(|(_, p)| p).chain(&mut iter),
-                limit,
-                inv_offset,
-                result,
-            );
-            return T::from_u128(q).unwrap();
         }
 
         // group the next primes while their product fits a u64, so that the
@@ -874,7 +830,7 @@ mod tests {
         let primes: Vec<u64> = vec![3, 7, 5, 2, 11, 2, 13];
         // 2*3*5*7*11*13 = 30030
         let mut factors = BTreeMap::new();
-        let residual = word_trial_division(30030u64, primes.into_iter(), None, 0, &mut factors);
+        let residual = trial_division_u64(30030, primes.into_iter(), None, 0, &mut factors);
         assert_eq!(residual, 1);
         for p in [2, 3, 5, 7, 11, 13] {
             assert_eq!(factors[&p], 1, "exponent of {p}");
@@ -955,6 +911,15 @@ mod tests {
         assert_eq!(factors[&3], 39);
         assert_eq!(factors[&251], 9);
         assert!(!factors.contains_key(&5));
+
+        // After peeling 2, the residual still needs 80 bits. Continue batching
+        // until the later prime 3 removes it.
+        let m = BigUint::from(2u8).pow(130) * BigUint::from(3u8).pow(50);
+        let (factors, residual) =
+            trial_division_wide([2, 4_294_967_291, 4_294_967_291, 3].into_iter(), m, None);
+        assert_eq!(factors[&2], 130);
+        assert_eq!(factors[&3], 50);
+        assert_eq!(residual, Ok(BigUint::one()));
 
         // Even after the residual becomes small, the original target's square
         // root is above every u64 prime, so 13 is not proven prime by this pass.
