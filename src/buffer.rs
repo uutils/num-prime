@@ -10,7 +10,7 @@
 //! but it will be efficient enough for most applications.
 //!
 
-use crate::factor::{pollard_rho, trial_division};
+use crate::factor::{pollard_rho, trial_division_fast};
 use crate::nt_funcs::{
     factorize128, is_prime64, next_prime, nth_prime_bounds, nth_prime_est, prev_prime,
 };
@@ -134,7 +134,7 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
         let config = config.unwrap_or_default();
 
         // test the existing primes
-        let (result, factored) = trial_division(self.iter().copied(), target, config.td_limit);
+        let (result, factored) = trial_division_fast(self.iter().copied(), target, config.td_limit);
         let mut result: BTreeMap<T, usize> = result
             .into_iter()
             .map(|(k, v)| (T::from_u64(k).unwrap(), v))

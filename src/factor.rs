@@ -53,7 +53,13 @@ impl WordResidual for u64 {
     fn div_exact_prime(self, p: u64, pre: Option<&PreModInv<u64>>) -> Option<Self> {
         match pre {
             Some(pre) => DivExact::div_exact(self, p, pre),
-            None => (self % p == 0).then(|| self / p),
+            None => {
+                if self % p == 0 {
+                    Some(self / p)
+                } else {
+                    None
+                }
+            }
         }
     }
 }
@@ -65,7 +71,14 @@ impl WordResidual for u128 {
             // the 128-bit residual is handled as DoubleWord, the check costs
             // two multiplications instead of a software division
             Some(pre) => DivExact::div_exact(self, p, pre),
-            None => (self % u128::from(p) == 0).then(|| self / u128::from(p)),
+            None => {
+                let p = u128::from(p);
+                if self % p == 0 {
+                    Some(self / p)
+                } else {
+                    None
+                }
+            }
         }
     }
 }
@@ -285,12 +298,9 @@ where
 /// The parameter limit additionally sets the maximum of primes to be tried.
 /// The residual will be Ok(1) or Ok(p) if fully factored.
 ///
-/// Divisibility checks run on single words whenever the residual fits one: with the
-/// `big-table` feature they use the precomputed modular inverses (via [`DivExact`]),
-/// otherwise plain remainder checks. For wider residuals, the primes are grouped into
-/// batches whose product fits a `u64`, so that one division of the target per batch
-/// replaces one division per prime, and the target is only divided by the primes that
-/// actually divide it.
+/// This function accepts integer types without requiring conversion back to primitive
+/// integers. [`crate::buffer::PrimeBufferExt::factors`] uses the faster word and
+/// batched trial division path when its integer type supports such conversion.
 ///
 /// # Examples
 ///
@@ -305,6 +315,60 @@ where
 /// assert!(residual.is_ok());
 /// ```
 pub fn trial_division<
+    I: Iterator<Item = u64>,
+    T: Integer + Clone + Roots + NumRef + FromPrimitive,
+>(
+    primes: I,
+    target: T,
+    limit: Option<u64>,
+) -> (BTreeMap<u64, usize>, Result<T, T>)
+where
+    for<'r> &'r T: RefNum<T>,
+{
+    let mut result = BTreeMap::new();
+    if target.is_zero() {
+        return (result, Err(target));
+    }
+
+    let tsqrt: T = Roots::sqrt(&target) + T::one();
+    let limit = limit.map_or_else(
+        || tsqrt.clone(),
+        |l| tsqrt.clone().min(T::from_u64(l).unwrap()),
+    );
+    let mut residual = target;
+    let mut factored = false;
+    for (p, pt) in primes.map(|p| (p, T::from_u64(p).unwrap())) {
+        if pt > tsqrt {
+            factored = true;
+        }
+        if pt > limit {
+            break;
+        }
+
+        loop {
+            let (quo, rem) = residual.div_rem(&pt);
+            if !rem.is_zero() {
+                break;
+            }
+            residual = quo;
+            *result.entry(p).or_insert(0) += 1;
+        }
+        if residual.is_one() {
+            factored = true;
+            break;
+        }
+    }
+
+    if factored {
+        (result, Ok(residual))
+    } else {
+        (result, Err(residual))
+    }
+}
+
+/// Faster trial division for types that can convert residuals to primitive words.
+/// The public `trial_division` retains its original bounds for custom integer types.
+pub(crate) fn trial_division_fast<
     I: Iterator<Item = u64>,
     T: Integer + Clone + Roots + NumRef + FromPrimitive + ToPrimitive,
 >(
@@ -845,7 +909,7 @@ mod tests {
         // the precomputed inverses must not be misapplied on such iterators
         let primes: Vec<u64> = vec![3, 7, 5, 2, 11, 2, 13];
         // 2*3*5*7*11*13 = 30030
-        let (factors, residual) = trial_division(primes.into_iter(), 30030u64, None);
+        let (factors, residual) = trial_division_fast(primes.into_iter(), 30030u64, None);
         assert_eq!(residual, Ok(1));
         for p in [2, 3, 5, 7, 11, 13] {
             assert_eq!(factors[&p], 1, "exponent of {p}");
@@ -856,21 +920,25 @@ mod tests {
     fn trial_division_zero() {
         // zero has no prime factorization, it must not loop forever
         let primes: Vec<u64> = vec![2, 3, 5, 7];
-        let (factors, residual) = trial_division(primes.into_iter(), 0u64, None);
-        assert!(factors.is_empty());
-        assert_eq!(residual.unwrap_err(), 0);
+        for (factors, residual) in [
+            trial_division(primes.iter().copied(), 0u64, None),
+            trial_division_fast(primes.into_iter(), 0u64, None),
+        ] {
+            assert!(factors.is_empty());
+            assert_eq!(residual.unwrap_err(), 0);
+        }
     }
 
     #[test]
     fn trial_division_u128() {
         // 3^41 doesn't fit a u64, the residual is checked as DoubleWord
         let n = 3u128.pow(41);
-        let (factors, residual) = trial_division([2, 3, 5].into_iter(), n, None);
+        let (factors, residual) = trial_division_fast([2, 3, 5].into_iter(), n, None);
         assert_eq!(residual, Ok(1));
         assert_eq!(factors[&3], 41);
 
         // a limit below the smallest factor leaves the target unfactored
-        let (factors, residual) = trial_division([2, 3, 5].into_iter(), n, Some(2));
+        let (factors, residual) = trial_division_fast([2, 3, 5].into_iter(), n, Some(2));
         assert!(factors.is_empty());
         assert_eq!(residual, Err(n));
     }
@@ -892,7 +960,7 @@ mod tests {
         n = &n * BigUint::from(251u8).pow(9);
         assert!(n.to_u128().is_none());
 
-        let (factors, residual) = trial_division(primes(), n, None);
+        let (factors, residual) = trial_division_fast(primes(), n, None);
         assert_eq!(residual, Ok(BigUint::one()));
         assert_eq!(factors[&2], 90);
         assert_eq!(factors[&3], 40);
@@ -906,7 +974,7 @@ mod tests {
             * BigUint::from(7u8).pow(11)
             * BigUint::from(241u8).pow(9)
             * BigUint::from(251u8).pow(9);
-        let (factors, residual) = trial_division(primes(), n.clone(), Some(100));
+        let (factors, residual) = trial_division_fast(primes(), n.clone(), Some(100));
         assert_eq!(
             residual,
             Err(BigUint::from(241u8).pow(9) * BigUint::from(251u8).pow(9))
@@ -920,7 +988,7 @@ mod tests {
         // leaving 3^39 which is re-reduced against the same batch product
         let m =
             BigUint::from(2u8).pow(64) * BigUint::from(251u8).pow(9) * BigUint::from(3u8).pow(39);
-        let (factors, residual) = trial_division([2, 5, 251, 3].into_iter(), m, None);
+        let (factors, residual) = trial_division_fast([2, 5, 251, 3].into_iter(), m, None);
         assert_eq!(residual, Ok(BigUint::one()));
         assert_eq!(factors[&2], 64);
         assert_eq!(factors[&3], 39);
