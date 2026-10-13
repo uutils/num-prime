@@ -85,29 +85,18 @@ impl WordResidual for u128 {
 
 /// Run trial division on a residual that fits the single word type `W`.
 ///
-/// `tsqrt` must be the square root bound derived from the original target (not
-/// the shrinking residual), so that the `Ok`/`Err` split matches the wide path.
 /// `inv_offset` is the position of the first prime of `primes` in the original
 /// iterator, used to look up the precomputed inverses.
 fn word_trial_division<W: WordResidual>(
     mut residual: W,
     primes: impl Iterator<Item = u64>,
-    tsqrt: W,
     limit: Option<u64>,
     inv_offset: usize,
     result: &mut BTreeMap<u64, usize>,
-) -> (bool, W) {
-    let lim = match limit {
-        Some(l) => tsqrt.min(<W as From<u64>>::from(l)),
-        None => tsqrt,
-    };
-
-    let mut factored = false;
+) -> W {
+    let lim = limit.unwrap_or(u64::MAX);
     for (i, p) in primes.enumerate() {
-        if <W as From<u64>>::from(p) > tsqrt {
-            factored = true;
-        }
-        if <W as From<u64>>::from(p) > lim {
+        if p > lim {
             break;
         }
 
@@ -127,11 +116,10 @@ fn word_trial_division<W: WordResidual>(
             *result.entry(p).or_insert(0) += exp;
         }
         if residual == <W as From<u64>>::from(1) {
-            factored = true;
             break;
         }
     }
-    (factored, residual)
+    residual
 }
 
 /// Run trial division on a residual that doesn't fit a `u128`.
@@ -142,21 +130,17 @@ fn word_trial_division<W: WordResidual>(
 /// checks run on the single-word remainder (via [`DivExact`] with the
 /// precomputed inverses when available), and the residual itself is only
 /// divided when a prime actually divides it.
-fn wide_trial_division<T>(
+fn batched_trial_division<T>(
     target: T,
     primes: impl Iterator<Item = u64>,
-    tsqrt64: Option<u64>,
-    tsqrt128: Option<u128>,
     limit: Option<u64>,
     result: &mut BTreeMap<u64, usize>,
-) -> (bool, T)
+) -> T
 where
-    T: Integer + Clone + Roots + NumRef + FromPrimitive + ToPrimitive,
+    T: Integer + Clone + NumRef + FromPrimitive + ToPrimitive,
     for<'r> &'r T: RefNum<T>,
 {
-    let tsqrt = tsqrt64.unwrap_or(u64::MAX);
-    let lim = tsqrt.min(limit.unwrap_or(u64::MAX));
-
+    let lim = limit.unwrap_or(u64::MAX);
     // the residual remainder for the current batch, recomputed after each hit.
     // note: mod_floor instead of rem, the Mint backend only supports the
     // remainder operator for odd divisors (it goes through Montgomery form)
@@ -174,7 +158,6 @@ where
     };
 
     let mut residual = target;
-    let mut factored = false;
     let mut iter = primes;
     let mut pending: Option<(usize, u64)> = None; // prime that didn't fit the last batch
     let mut batch: Vec<(usize, u64)> = Vec::new();
@@ -184,26 +167,24 @@ where
         // hand the residual over to the word loops once it fits a word
         let inv_offset = pending.as_ref().map_or(pulled, |&(pos, _)| pos);
         if let Some(r) = residual.to_u64() {
-            let (f, q) = word_trial_division(
+            let q = word_trial_division(
                 r,
                 pending.into_iter().map(|(_, p)| p).chain(&mut iter),
-                tsqrt,
                 limit,
                 inv_offset,
                 result,
             );
-            return (factored || f, T::from_u64(q).unwrap());
+            return T::from_u64(q).unwrap();
         }
         if let Some(r) = residual.to_u128() {
-            let (f, q) = word_trial_division(
+            let q = word_trial_division(
                 r,
                 pending.into_iter().map(|(_, p)| p).chain(&mut iter),
-                tsqrt128.unwrap_or(u128::MAX),
                 limit,
                 inv_offset,
                 result,
             );
-            return (factored || f, T::from_u128(q).unwrap());
+            return T::from_u128(q).unwrap();
         }
 
         // group the next primes while their product fits a u64, so that the
@@ -227,9 +208,6 @@ where
                     }
                 },
             };
-            if p > tsqrt {
-                factored = true;
-            }
             if p > lim {
                 stop = true;
                 break;
@@ -279,7 +257,6 @@ where
                 }
 
                 if residual.is_one() {
-                    factored = true;
                     break 'outer;
                 }
                 r = word_residual(&residual, &m_t);
@@ -289,7 +266,7 @@ where
             break;
         }
     }
-    (factored, residual)
+    residual
 }
 
 /// Find factors by trial division, returns a tuple of the found factors and the residual.
@@ -299,8 +276,8 @@ where
 /// The residual will be Ok(1) or Ok(p) if fully factored.
 ///
 /// This function accepts integer types without requiring conversion back to primitive
-/// integers. [`crate::buffer::PrimeBufferExt::factors`] uses the faster word and
-/// batched trial division path when its integer type supports such conversion.
+/// integers. [`crate::buffer::PrimeBufferExt::factors`] uses batched trial division
+/// for targets wider than `u128`.
 ///
 /// # Examples
 ///
@@ -366,11 +343,11 @@ where
     }
 }
 
-/// Faster trial division for types that can convert residuals to primitive words.
-/// The public `trial_division` retains its original bounds for custom integer types.
-pub(crate) fn trial_division_fast<
+/// Trial division for targets wider than `u128`, using batched divisibility checks.
+/// The caller has already handled targets that fit in `u128`.
+pub(crate) fn trial_division_wide<
     I: Iterator<Item = u64>,
-    T: Integer + Clone + Roots + NumRef + FromPrimitive + ToPrimitive,
+    T: Integer + Clone + NumRef + FromPrimitive + ToPrimitive,
 >(
     primes: I,
     target: T,
@@ -379,23 +356,10 @@ pub(crate) fn trial_division_fast<
 where
     for<'r> &'r T: RefNum<T>,
 {
+    debug_assert!(target.to_u128().is_none());
     let mut result = BTreeMap::new();
-
-    // zero has no prime factorization, dividing it by primes would never end
-    if target.is_zero() {
-        return (result, Err(target));
-    }
-
-    let tsqrt = Roots::sqrt(&target) + T::one();
-    let tsqrt64 = tsqrt.to_u64();
-    let tsqrt128 = tsqrt.to_u128();
-
-    // wide_trial_division hands the residual over to the word loops at its
-    // first iteration when the target already fits a word
-    let (factored, residual) =
-        wide_trial_division(target, primes, tsqrt64, tsqrt128, limit, &mut result);
-
-    if factored {
+    let residual = batched_trial_division(target, primes, limit, &mut result);
+    if residual.is_one() {
         (result, Ok(residual))
     } else {
         (result, Err(residual))
@@ -909,8 +873,9 @@ mod tests {
         // the precomputed inverses must not be misapplied on such iterators
         let primes: Vec<u64> = vec![3, 7, 5, 2, 11, 2, 13];
         // 2*3*5*7*11*13 = 30030
-        let (factors, residual) = trial_division_fast(primes.into_iter(), 30030u64, None);
-        assert_eq!(residual, Ok(1));
+        let mut factors = BTreeMap::new();
+        let residual = word_trial_division(30030u64, primes.into_iter(), None, 0, &mut factors);
+        assert_eq!(residual, 1);
         for p in [2, 3, 5, 7, 11, 13] {
             assert_eq!(factors[&p], 1, "exponent of {p}");
         }
@@ -920,25 +885,21 @@ mod tests {
     fn trial_division_zero() {
         // zero has no prime factorization, it must not loop forever
         let primes: Vec<u64> = vec![2, 3, 5, 7];
-        for (factors, residual) in [
-            trial_division(primes.iter().copied(), 0u64, None),
-            trial_division_fast(primes.into_iter(), 0u64, None),
-        ] {
-            assert!(factors.is_empty());
-            assert_eq!(residual.unwrap_err(), 0);
-        }
+        let (factors, residual) = trial_division(primes.into_iter(), 0u64, None);
+        assert!(factors.is_empty());
+        assert_eq!(residual.unwrap_err(), 0);
     }
 
     #[test]
     fn trial_division_u128() {
-        // 3^41 doesn't fit a u64, the residual is checked as DoubleWord
+        // 3^41 doesn't fit a u64, but is still accepted by the public path
         let n = 3u128.pow(41);
-        let (factors, residual) = trial_division_fast([2, 3, 5].into_iter(), n, None);
+        let (factors, residual) = trial_division([2, 3, 5].into_iter(), n, None);
         assert_eq!(residual, Ok(1));
         assert_eq!(factors[&3], 41);
 
         // a limit below the smallest factor leaves the target unfactored
-        let (factors, residual) = trial_division_fast([2, 3, 5].into_iter(), n, Some(2));
+        let (factors, residual) = trial_division([2, 3, 5].into_iter(), n, Some(2));
         assert!(factors.is_empty());
         assert_eq!(residual, Err(n));
     }
@@ -960,7 +921,7 @@ mod tests {
         n = &n * BigUint::from(251u8).pow(9);
         assert!(n.to_u128().is_none());
 
-        let (factors, residual) = trial_division_fast(primes(), n, None);
+        let (factors, residual) = trial_division_wide(primes(), n, None);
         assert_eq!(residual, Ok(BigUint::one()));
         assert_eq!(factors[&2], 90);
         assert_eq!(factors[&3], 40);
@@ -974,7 +935,7 @@ mod tests {
             * BigUint::from(7u8).pow(11)
             * BigUint::from(241u8).pow(9)
             * BigUint::from(251u8).pow(9);
-        let (factors, residual) = trial_division_fast(primes(), n.clone(), Some(100));
+        let (factors, residual) = trial_division_wide(primes(), n.clone(), Some(100));
         assert_eq!(
             residual,
             Err(BigUint::from(241u8).pow(9) * BigUint::from(251u8).pow(9))
@@ -988,11 +949,18 @@ mod tests {
         // leaving 3^39 which is re-reduced against the same batch product
         let m =
             BigUint::from(2u8).pow(64) * BigUint::from(251u8).pow(9) * BigUint::from(3u8).pow(39);
-        let (factors, residual) = trial_division_fast([2, 5, 251, 3].into_iter(), m, None);
+        let (factors, residual) = trial_division_wide([2, 5, 251, 3].into_iter(), m, None);
         assert_eq!(residual, Ok(BigUint::one()));
         assert_eq!(factors[&2], 64);
         assert_eq!(factors[&3], 39);
         assert_eq!(factors[&251], 9);
         assert!(!factors.contains_key(&5));
+
+        // Even after the residual becomes small, the original target's square
+        // root is above every u64 prime, so 13 is not proven prime by this pass.
+        let m = BigUint::from(2u8).pow(130) * BigUint::from(13u8);
+        let (factors, residual) = trial_division_wide([2, 3, 5].into_iter(), m, None);
+        assert_eq!(factors[&2], 130);
+        assert_eq!(residual, Err(BigUint::from(13u8)));
     }
 }
