@@ -107,7 +107,8 @@ where
     for<'r> &'r T: RefNum<T>,
 {
     let lim = limit.unwrap_or(u64::MAX);
-    // the residual remainder for the current batch, recomputed after each hit.
+    // One remainder identifies every prime divisor in a batch: removing powers
+    // of one prime does not change divisibility by the other primes.
     // note: mod_floor instead of rem, the Mint backend only supports the
     // remainder operator for odd divisors (it goes through Montgomery form)
     let word_residual = |residual: &T, m: &T| -> u64 {
@@ -182,7 +183,7 @@ where
 
         if !batch.is_empty() {
             let m_t = T::from_u64(m).expect("batch product is representable in T");
-            let mut r = word_residual(&residual, &m_t);
+            let r = word_residual(&residual, &m_t);
             for &(pos, p) in batch.iter() {
                 let divisible = if p == 2 {
                     r & 1 == 0
@@ -215,7 +216,6 @@ where
                 if residual.is_one() {
                     break 'outer;
                 }
-                r = word_residual(&residual, &m_t);
             }
         }
         if exhausted || stop {
@@ -902,7 +902,7 @@ mod tests {
 
         // the residual drops below u64 in the middle of a batch: 2 and 251
         // are peeled from the wide target while the batch is still running,
-        // leaving 3^39 which is re-reduced against the same batch product
+        // leaving 3^39, which the original batch remainder already detects
         let m =
             BigUint::from(2u8).pow(64) * BigUint::from(251u8).pow(9) * BigUint::from(3u8).pow(39);
         let (factors, residual) = trial_division_wide([2, 5, 251, 3].into_iter(), m, None);
