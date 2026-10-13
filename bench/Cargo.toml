@@ -10,7 +10,7 @@ name = "bench"
 
 [dev-dependencies]
 criterion = { package = "codspeed-criterion-compat", version = "5.0.0" }
-glass_pumpkin = "1.2.0"
+glass_pumpkin = "2.0.0"
 num-bigint = { version = "0.4.6", features = ["rand"] }
 num-prime = { path = "..", features = ["big-int"] }
 primal-check = "0.3.1"
