@@ -6,7 +6,7 @@ permissions:
 name: CI
 
 jobs:
-  cargo_test:
+  test:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -24,12 +24,22 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
-      - run: cargo test
-      - run: cargo test --all-features
-      - run: cargo test --features big-table
-      - run: cargo test --no-default-features
-      - run: cargo test --no-default-features --features big-table
-      - run: cargo test --no-default-features --features big-int
+      - name: Install tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
+      - name: Generate minimal lockfile
+        run: |
+          RUSTC_BOOTSTRAP=1 cargo update -Z minimal-versions
+          # TODO: https://github.com/ferrilab/bitvec/pull/301
+          cargo update tap --precise 1.0.1
+        if: ${{ matrix.rust == '1.70.0' }}
+      - run: |
+          cargo hack test \
+            --workspace
+            --ignore-private \
+            --all-targets \
+            --feature-powerset
 
   clippy:
     runs-on: ${{ matrix.os }}
