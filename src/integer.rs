@@ -239,8 +239,8 @@ mod tests {
 
         #[cfg(feature = "big-int")]
         {
-            use num_bigint::RandBigInt;
-            let mut rng = rand::thread_rng();
+            use num_bigint::BigRng010;
+            let mut rng = rand::rng();
             // test fast implementations of sqrt against nth_root
             for _ in 0..10 {
                 let x = rng.gen_biguint(150);

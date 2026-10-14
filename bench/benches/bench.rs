@@ -5,7 +5,7 @@ use std::iter::repeat_with;
 use criterion::{Criterion, SamplingMode};
 use glass_pumpkin::{prime as gprime, safe_prime as safe_gprime};
 use num_bigint::BigUint;
-use num_bigint::RandBigInt;
+use num_bigint::BigRng010;
 use num_prime::{nt_funcs, RandPrime};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
@@ -29,7 +29,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
     });
 
     group.bench_function("glass_pumpkin", |b| {
-        b.iter(|| numbers().filter(|&n| gprime::check(&n.into())).count())
+        b.iter(|| numbers().filter(|&n| gprime::check(&n.into()).unwrap()).count())
     });
     group.bench_function("primal-check", |b| {
         b.iter(|| numbers().filter(|&n| miller_rabin(n)).count())
@@ -52,7 +52,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
         })
     });
     group.bench_function("glass_pumpkin", |b| {
-        b.iter(|| numbers.iter().filter(|&n| gprime::check(n)).count())
+        b.iter(|| numbers.iter().filter(|&n| gprime::check(n).unwrap()).count())
     });
     group.bench_function("glass_pumpkin (BPSW)", |b| {
         b.iter(|| numbers.iter().filter(|&n| gprime::strong_check(n)).count())
@@ -69,7 +69,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
         })
     });
     group.bench_function("glass_pumpkin", |b| {
-        b.iter(|| numbers.iter().filter(|&n| safe_gprime::check(n)).count())
+        b.iter(|| numbers.iter().filter(|&n| safe_gprime::check(n).unwrap()).count())
     });
     group.bench_function("glass_pumpkin (BPSW)", |b| {
         b.iter(|| {
@@ -96,7 +96,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
         })
     });
     group.bench_function("glass_pumpkin", |b| {
-        b.iter(|| numbers.iter().filter(|&n| gprime::check(n)).count())
+        b.iter(|| numbers.iter().filter(|&n| gprime::check(n).unwrap()).count())
     });
     group.bench_function("glass_pumpkin (BPSW)", |b| {
         b.iter(|| numbers.iter().filter(|&n| gprime::strong_check(n)).count())
@@ -113,7 +113,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
         })
     });
     group.bench_function("glass_pumpkin", |b| {
-        b.iter(|| numbers.iter().filter(|&n| safe_gprime::check(n)).count())
+        b.iter(|| numbers.iter().filter(|&n| safe_gprime::check(n).unwrap()).count())
     });
     group.bench_function("glass_pumpkin (BPSW)", |b| {
         b.iter(|| {

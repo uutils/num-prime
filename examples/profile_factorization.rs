@@ -60,7 +60,7 @@ fn profile_n_min(n: u128) -> Vec<(String, usize)> {
 
 /// This program try various factorization methods, and log down their iterations number into a csv file
 fn main() -> Result<(), Error> {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     const REPEATS: u32 = 4;
 
     let mut n_list = Vec::<(u128, f32)>::new(); // n and bits of n
