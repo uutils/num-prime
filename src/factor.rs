@@ -38,22 +38,12 @@ fn small_prime_inv(_i: usize, _p: u64) -> Option<&'static PreModInv<u64>> {
 }
 
 /// Finish trial division after a wide residual shrinks to `u64`.
-///
-/// `inv_offset` is the position of the first prime of `primes` in the original
-/// iterator, used to look up the precomputed inverses.
 fn trial_division_u64(
     mut residual: u64,
-    primes: impl Iterator<Item = u64>,
-    limit: Option<u64>,
-    inv_offset: usize,
+    primes: impl Iterator<Item = (usize, u64)>,
     result: &mut BTreeMap<u64, usize>,
 ) -> u64 {
-    let lim = limit.unwrap_or(u64::MAX);
-    for (i, p) in primes.enumerate() {
-        if p > lim {
-            break;
-        }
-
+    for (pos, p) in primes {
         let mut exp = 0usize;
         if p == 2 {
             // the precomputed inverses only cover odd primes
@@ -61,7 +51,7 @@ fn trial_division_u64(
             residual >>= tz as usize;
             exp = tz as usize;
         } else {
-            let inv = small_prime_inv(inv_offset + i, p);
+            let inv = small_prime_inv(pos, p);
             loop {
                 let next = match inv {
                     Some(inv) => DivExact::div_exact(residual, p, inv),
@@ -107,41 +97,16 @@ where
     for<'r> &'r T: RefNum<T>,
 {
     let lim = limit.unwrap_or(u64::MAX);
-    // One remainder identifies every prime divisor in a batch: removing powers
-    // of one prime does not change divisibility by the other primes.
-    // note: mod_floor instead of rem, the Mint backend only supports the
-    // remainder operator for odd divisors (it goes through Montgomery form)
-    let word_residual = |residual: &T, m: &T| -> u64 {
-        if residual < m {
-            residual
-                .to_u64()
-                .expect("residual below the batch product fits u64")
-        } else {
-            residual
-                .mod_floor(m)
-                .to_u64()
-                .expect("remainder below the batch product fits u64")
-        }
-    };
-
     let mut residual = target;
-    let mut iter = primes;
+    let mut iter = primes.take_while(|&p| p <= lim).enumerate();
     let mut pending: Option<(usize, u64)> = None; // prime that didn't fit the last batch
     let mut batch: Vec<(usize, u64)> = Vec::new();
-    let mut pulled = 0usize; // number of primes taken from the iterator
 
     'outer: loop {
         // hand the residual over to the u64 loop once it fits
-        let inv_offset = pending.as_ref().map_or(pulled, |&(pos, _)| pos);
         if let Some(r) = residual.to_u64() {
-            let q = trial_division_u64(
-                r,
-                pending.into_iter().map(|(_, p)| p).chain(&mut iter),
-                limit,
-                inv_offset,
-                result,
-            );
-            return T::from_u64(q).unwrap();
+            let q = trial_division_u64(r, pending.into_iter().chain(&mut iter), result);
+            return T::from_u64(q).expect("u64 residual fits the target type");
         }
 
         // group the next primes while their product fits a u64, so that the
@@ -150,25 +115,17 @@ where
         batch.clear();
         let mut m: u64 = 1;
         let mut exhausted = false;
-        let mut stop = false;
         loop {
             let (pos, p) = match pending.take() {
                 Some(pp) => pp,
                 None => match iter.next() {
-                    Some(p) => {
-                        pulled += 1;
-                        (pulled - 1, p)
-                    }
+                    Some(pp) => pp,
                     None => {
                         exhausted = true;
                         break;
                     }
                 },
             };
-            if p > lim {
-                stop = true;
-                break;
-            }
             match m.checked_mul(p) {
                 Some(m2) => {
                     m = m2;
@@ -183,7 +140,13 @@ where
 
         if !batch.is_empty() {
             let m_t = T::from_u64(m).expect("batch product is representable in T");
-            let r = word_residual(&residual, &m_t);
+            // Use mod_floor because the Mint backend only supports rem for odd divisors.
+            // One remainder identifies every prime divisor in the batch: removing
+            // powers of one prime cannot change divisibility by another.
+            let r = residual
+                .mod_floor(&m_t)
+                .to_u64()
+                .expect("remainder below the batch product fits u64");
             for &(pos, p) in batch.iter() {
                 let divisible = if p == 2 {
                     r & 1 == 0
@@ -218,7 +181,7 @@ where
                 }
             }
         }
-        if exhausted || stop {
+        if exhausted {
             break;
         }
     }
@@ -230,10 +193,6 @@ where
 /// The target is guaranteed fully factored only if bound * bound > target, where bound = max(primes).
 /// The parameter limit additionally sets the maximum of primes to be tried.
 /// The residual will be Ok(1) or Ok(p) if fully factored.
-///
-/// This function accepts integer types without requiring conversion back to primitive
-/// integers. [`crate::buffer::PrimeBufferExt::factors`] uses batched trial division
-/// for targets wider than `u128`.
 ///
 /// # Examples
 ///
@@ -830,7 +789,7 @@ mod tests {
         let primes: Vec<u64> = vec![3, 7, 5, 2, 11, 2, 13];
         // 2*3*5*7*11*13 = 30030
         let mut factors = BTreeMap::new();
-        let residual = trial_division_u64(30030, primes.into_iter(), None, 0, &mut factors);
+        let residual = trial_division_u64(30030, primes.into_iter().enumerate(), &mut factors);
         assert_eq!(residual, 1);
         for p in [2, 3, 5, 7, 11, 13] {
             assert_eq!(factors[&p], 1, "exponent of {p}");
