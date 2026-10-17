@@ -773,11 +773,12 @@ where
 {
     // remove factor 2
     if target.is_even() {
-        let two = T::one() + T::one();
-        let four = &two + &two;
-        if (target % four).is_zero() {
+        // given the target is even, it is divisible by 4 iff its bit 1 is not
+        // set; this avoids a full division just for the divisibility check
+        if !target.bit(1) {
             return 0;
         } else {
+            let two = T::one() + T::one();
             return -moebius(&(target / &two));
         }
     }
