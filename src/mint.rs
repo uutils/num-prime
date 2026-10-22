@@ -384,6 +384,16 @@ impl<T: Integer + Clone + FromPrimitive, R: Reducer<T>> FromPrimitive for Mint<T
     fn from_u64(n: u64) -> Option<Self> {
         T::from_u64(n).map(|v| Self(Left(v)))
     }
+    // override the default implementations, they return None when the input
+    // doesn't fit u64/i64 although the wrapped T can represent it
+    #[inline]
+    fn from_i128(n: i128) -> Option<Self> {
+        T::from_i128(n).map(|v| Self(Left(v)))
+    }
+    #[inline]
+    fn from_u128(n: u128) -> Option<Self> {
+        T::from_u128(n).map(|v| Self(Left(v)))
+    }
 }
 
 impl<T: Integer + Clone + ToPrimitive, R: Reducer<T> + Clone> ToPrimitive for Mint<T, R> {
@@ -680,6 +690,20 @@ mod tests {
         let a: SmallMint<u32> = 19.into();
         let b: SmallMint<u32> = 8.into();
         assert_eq!(a + b, 27.into());
+    }
+
+    // --- FromPrimitive on 128 bit inputs ---
+    #[test]
+    fn test_from_128bit_above_u64() {
+        use num_traits::FromPrimitive as _;
+
+        // the default FromPrimitive implementations return None for values
+        // beyond 64 bits, the overrides must accept what T can represent
+        let v = u128::from(u64::MAX) * 3 + 7;
+        assert_eq!(SmallMint::<u128>::from_u128(v).unwrap().value(), v);
+
+        let i = 4 * i128::from(i64::MAX) + 11;
+        assert_eq!(SmallMint::<u128>::from_i128(i).unwrap().value(), i as u128);
     }
 
     // --- Sub, Mul, Div, Rem operators ---
