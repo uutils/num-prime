@@ -49,7 +49,6 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.70.0
           - stable
           - nightly
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -63,11 +62,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           components: clippy
-      # Benches are not supported by the MSRV.
-      - if: ${{ !(matrix.rust == 'stable' || matrix.rust == 'nightly') }}
-        run: cargo clippy --exclude num-prime-bench --workspace --all-targets --all-features -- -D warnings
-      - if: matrix.rust == 'stable' || matrix.rust == 'nightly'
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   minimal-versions:
     runs-on: ubuntu-latest
