@@ -175,6 +175,10 @@ fn is_prime64_miller(target: u64) -> bool {
 /// The factorization can be quite faster under 2^64 because: 1) faster and deterministic primality check,
 /// 2) efficient montgomery multiplication implementation of u64
 ///
+/// # Panics
+///
+/// Panics if `target` is 0, which has no prime factorization.
+///
 /// # Examples
 ///
 /// ```
@@ -200,6 +204,8 @@ pub fn factorize64(target: u64) -> BTreeMap<u64, usize> {
     //      https://github.com/radii/msieve
     //      https://github.com/zademn/facto-rs
     //      Pari/GP: ifac_crack
+    // 0 would report 2^64 and a factor 0, and shift by 64 below
+    assert!(target != 0, "cannot factorize 0");
     let mut result = BTreeMap::new();
 
     // quick check on factors of 2
@@ -375,6 +381,10 @@ pub(crate) fn factorize64_advanced(cofactors: &[(u64, usize)]) -> Vec<(u64, usiz
 
 /// Fast integer factorization on a u128 target. It's based on a selection of factorization methods.
 /// if target is larger than 2^128 or more controlled primality tests are desired, please use [`factors()`][crate::buffer::PrimeBufferExt::factors].
+///
+/// # Panics
+///
+/// Panics if `target` is 0, which has no prime factorization.
 ///
 /// # Examples
 ///
@@ -1460,6 +1470,24 @@ mod tests {
             }
             assert_eq!(x, prod, "factorization check failed! ({x} != {prod})");
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot factorize 0")]
+    fn factorize64_zero_panics() {
+        let _ = factorize64(0);
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot factorize 0")]
+    fn factorize128_zero_panics() {
+        let _ = factorize128(0);
+    }
+
+    #[test]
+    #[should_panic(expected = "cannot factorize 0")]
+    fn factorize_generic_zero_panics() {
+        let _ = factorize(0u64);
     }
 
     #[test]
