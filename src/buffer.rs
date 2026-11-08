@@ -142,40 +142,19 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
 
         // TODO: check is_perfect_power before other methods
 
-        // find factors by dividing
-        let mut failed = Vec::new();
+        // disable trial division when finding divisor
         let mut config = config;
-        config.td_limit = Some(0); // disable trial division when finding divisor
-        match factored {
+        config.td_limit = Some(0);
+
+        // find factors by dividing
+        let failed = match factored {
             Ok(res) => {
                 if !res.is_one() {
                     result.insert(res, 1);
                 }
+                Vec::new()
             }
-            Err(res) => {
-                let mut todo = vec![res];
-                while let Some(target) = todo.pop() {
-                    if self
-                        .is_prime(&target, Some(config.primality_config))
-                        .probably()
-                    {
-                        *result.entry(target).or_insert(0) += 1;
-                    } else if let Some(cofactors) = split_composite(&target) {
-                        todo.extend(cofactors);
-                    } else if let Some(divisor) = {
-                        // Give every cofactor its own budget: a shared one is
-                        // exhausted by the first splits and every remaining
-                        // composite is then reported as a failure.
-                        let mut config = config;
-                        self.divisor(&target, &mut config)
-                    } {
-                        todo.push(divisor.clone());
-                        todo.push(target / divisor);
-                    } else {
-                        failed.push(target);
-                    }
-                }
-            }
+            Err(res) => split_cofactors(self, &mut result, vec![res], &config),
         };
 
         if failed.is_empty() {
@@ -187,19 +166,26 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
 
     /// Factorize an integer until all prime factors are found.
     ///
-    /// This function will try to call [`PrimeBufferExt::factors`] function repeatedly until the target
-    /// is fully factorized.
+    /// Trial division runs only once, then the cofactors that resisted the
+    /// splitting attempts are retried until the target is fully factorized.
     fn factorize<T: PrimalityBase>(&self, target: T) -> BTreeMap<T, usize>
     where
         for<'r> &'r T: PrimalityRefBase<T>,
     {
-        // TODO: prevent overhead of repeat trial division
-        loop {
-            let (result, remainder) = self.factors(target.clone(), None);
-            if remainder.is_none() {
-                break result;
-            }
+        // the trial division pass only depends on the prime buffer, which
+        // doesn't change while factorizing, so it runs once; the retries only
+        // touch the cofactors that resisted so far
+        let (mut result, remainder) = self.factors(target, None);
+        let mut todo = remainder.unwrap_or_default();
+
+        // the rho seed derives from the target, a retry with the same config
+        // would repeat identical work, so every round advances the seed
+        let mut config = FactorizationConfig::default();
+        while !todo.is_empty() {
+            config.rho_seed = config.rho_seed.wrapping_add(1);
+            todo = split_cofactors(self, &mut result, todo, &config);
         }
+        result
     }
 
     /// Return a proper divisor of target (randomly), even works for very large numbers.
@@ -237,7 +223,8 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
         let mut rng = SplitMix64::new(
             target
                 .to_u64()
-                .unwrap_or_else(|| (target % T::from_u64(u64::MAX).unwrap()).to_u64().unwrap()),
+                .unwrap_or_else(|| (target % T::from_u64(u64::MAX).unwrap()).to_u64().unwrap())
+                .wrapping_add(config.rho_seed),
         );
         while config.rho_trials > 0 {
             let (start, offset) = if below64 {
@@ -270,10 +257,49 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
 /// on every step, so [`crate::montgomery`] keeps the modulus in Montgomery
 /// form instead; it also peels off perfect powers, which Pollard's rho cannot
 /// split. Returns `None` when neither applies.
+// Test hooks to exercise the retry paths: with the real splitters, a wide
+// cofactor either splits or runs unbounded, so a split failure cannot be
+// produced naturally. When armed, split_composite fails for targets of the
+// given bit length until the failure budget is exhausted.
+#[cfg(all(test, feature = "big-int"))]
+mod split_failure_hook {
+    use crate::traits::BitTest;
+    use core::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+
+    static BITS: AtomicUsize = AtomicUsize::new(0);
+    static LEFT: AtomicU32 = AtomicU32::new(0);
+
+    pub fn arm(bits: usize, failures: u32) {
+        BITS.store(bits, Ordering::Relaxed);
+        LEFT.store(failures, Ordering::Relaxed);
+    }
+
+    pub fn left() -> u32 {
+        LEFT.load(Ordering::Relaxed)
+    }
+
+    pub fn should_fail<T: BitTest>(target: &T) -> bool {
+        let bits = BITS.load(Ordering::Relaxed);
+        if bits == 0 || target.bits() != bits {
+            return false;
+        }
+        let left = LEFT.load(Ordering::Relaxed);
+        if left == 0 {
+            return false;
+        }
+        LEFT.store(left - 1, Ordering::Relaxed);
+        true
+    }
+}
+
 fn split_composite<T: PrimalityBase>(target: &T) -> Option<Vec<T>>
 where
     for<'r> &'r T: PrimalityRefBase<T>,
 {
+    #[cfg(all(test, feature = "big-int"))]
+    if split_failure_hook::should_fail(target) {
+        return None;
+    }
     if let Some(narrow) = target.to_u128() {
         let mut factors = Vec::new();
         for (factor, exp) in crate::nt_funcs::factorize128(narrow) {
@@ -310,6 +336,47 @@ where
     for<'r> &'r T: PrimalityRefBase<T>,
 {
     None
+}
+
+/// Split the remaining cofactors against the accumulated factorization result.
+///
+/// Each cofactor is primality-checked, split by the specialized paths, or
+/// handed to [`PrimeBufferExt::divisor`] with its own budget (a shared budget
+/// is exhausted by the first splits). The cofactors that still resist are
+/// returned, so callers can retry them with an advanced [`FactorizationConfig::rho_seed`]:
+/// the divisor trials are seeded from the target, so only a changed seed makes
+/// a retry do different work.
+fn split_cofactors<B, T>(
+    buffer: &B,
+    result: &mut BTreeMap<T, usize>,
+    mut todo: Vec<T>,
+    config: &FactorizationConfig,
+) -> Vec<T>
+where
+    B: PrimeBufferExt + ?Sized,
+    T: PrimalityBase,
+    for<'r> &'r T: PrimalityRefBase<T>,
+{
+    let mut failed = Vec::new();
+    while let Some(target) = todo.pop() {
+        if buffer
+            .is_prime(&target, Some(config.primality_config))
+            .probably()
+        {
+            *result.entry(target).or_insert(0) += 1;
+        } else if let Some(cofactors) = split_composite(&target) {
+            todo.extend(cofactors);
+        } else if let Some(divisor) = {
+            let mut config = *config;
+            buffer.divisor(&target, &mut config)
+        } {
+            todo.push(divisor.clone());
+            todo.push(target / divisor);
+        } else {
+            failed.push(target);
+        }
+    }
+    failed
 }
 
 impl<T> PrimeBufferExt for T where for<'a> T: PrimeBuffer<'a> {}
@@ -615,6 +682,84 @@ mod tests {
             factors[&BigUint::from_str("340282366920938463463374607431768211507").unwrap()],
             1
         );
+    }
+
+    #[test]
+    fn split_cofactors_accumulates_result() {
+        let pb = NaiveBuffer::new();
+        let mut result = BTreeMap::new();
+        // 35 is composite and splits through the u128 shortcut, 11 is prime
+        let failed = split_cofactors(
+            &pb,
+            &mut result,
+            vec![35u64, 11],
+            &FactorizationConfig::default(),
+        );
+        assert!(failed.is_empty());
+        assert_eq!(result[&5], 1);
+        assert_eq!(result[&7], 1);
+        assert_eq!(result[&11], 1);
+    }
+
+    #[cfg(feature = "big-int")]
+    #[test]
+    fn factorize_wide_number() {
+        let target = BigUint::from_str(THIRTEEN_PRIMES).unwrap();
+        let factorization = NaiveBuffer::new().factorize(target.clone());
+        assert_eq!(factorization.values().sum::<usize>(), 13);
+        let product = factorization
+            .iter()
+            .fold(BigUint::from(1u8), |acc, (f, e)| acc * f.pow(*e as u32));
+        assert_eq!(product, target);
+        for factor in factorization.keys() {
+            assert!(
+                NaiveBuffer::new().is_prime(factor, None).probably(),
+                "{} is not prime",
+                factor
+            );
+        }
+    }
+
+    #[cfg(feature = "big-int")]
+    #[test]
+    fn factorize_wide_number_with_small_factors() {
+        // 2^70 * 3^5 * 5 * 340282366920938463463374607431768211507
+        let target =
+            BigUint::from_str("488107430943668296195870985548628140589274519139277715139461120")
+                .unwrap();
+        let factorization = NaiveBuffer::new().factorize(target.clone());
+        let product = factorization
+            .iter()
+            .fold(BigUint::from(1u8), |acc, (f, e)| acc * f.pow(*e as u32));
+        assert_eq!(product, target);
+        assert_eq!(factorization[&BigUint::from(2u8)], 70);
+        assert_eq!(factorization[&BigUint::from(3u8)], 5);
+        assert_eq!(factorization[&BigUint::from(5u8)], 1);
+        assert_eq!(
+            factorization[&BigUint::from_str("340282366920938463463374607431768211507").unwrap()],
+            1
+        );
+    }
+
+    #[cfg(feature = "big-int")]
+    #[test]
+    fn factorize_retries_failed_splits() {
+        // three 44-bit primes (132 bits): wider than the u128 shortcut, and
+        // the seed derived from this product makes every budgeted rho trial
+        // miss, so both injected failures have to be recovered by retries
+        const PRIMES: [u64; 3] = [16_062_708_916_519, 13_357_226_209_849, 14_258_346_566_207];
+        let target: BigUint = PRIMES.iter().map(|&p| BigUint::from(p)).product();
+        let buffer = NaiveBuffer::new();
+
+        split_failure_hook::arm(crate::traits::BitTest::bits(&target), 2);
+        let factorization = buffer.factorize(target.clone());
+
+        let product = factorization
+            .iter()
+            .fold(BigUint::from(1u8), |acc, (f, e)| acc * f.pow(*e as u32));
+        assert_eq!(product, target);
+        assert_eq!(factorization.len(), 3);
+        assert_eq!(split_failure_hook::left(), 0);
     }
 
     #[test]
