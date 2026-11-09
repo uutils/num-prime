@@ -115,6 +115,10 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
     /// If the factorization failed, the second part will be the remaining cofactors that are not factored, otherwise None
     /// is returned for the second part. It's ensured that the product of prime factors (and remaining cofactors if exist)
     /// is equal to the original target.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `target` is 0, which has no prime factorization.
     fn factors<T: PrimalityBase>(
         &self,
         target: T,
@@ -189,6 +193,10 @@ pub trait PrimeBufferExt: for<'a> PrimeBuffer<'a> {
     ///
     /// This function will try to call [`PrimeBufferExt::factors`] function repeatedly until the target
     /// is fully factorized.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `target` is 0, which has no prime factorization.
     fn factorize<T: PrimalityBase>(&self, target: T) -> BTreeMap<T, usize>
     where
         for<'r> &'r T: PrimalityRefBase<T>,
