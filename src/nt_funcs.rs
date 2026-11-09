@@ -623,6 +623,10 @@ where
 ///
 /// This function re-exports [`PrimeBufferExt::factors()`][crate::buffer::PrimeBufferExt::factors()] with a new [`NaiveBuffer`] instance
 ///
+/// # Panics
+///
+/// Panics if `target` is 0, which has no prime factorization.
+///
 /// # Examples
 ///
 /// ```
@@ -647,6 +651,10 @@ where
 /// Infaillible factorization
 ///
 /// This function re-exports [`PrimeBufferExt::factorize()`][crate::buffer::PrimeBufferExt::factorize()] with a new [`NaiveBuffer`] instance
+///
+/// # Panics
+///
+/// Panics if `target` is 0, which has no prime factorization.
 ///
 /// # Examples
 ///
