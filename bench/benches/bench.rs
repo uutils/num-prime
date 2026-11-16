@@ -4,13 +4,12 @@ use std::iter::repeat_with;
 
 use criterion::{Criterion, SamplingMode};
 use glass_pumpkin::{prime as gprime, safe_prime as safe_gprime};
+use num_bigint::BigRng09;
 use num_bigint::BigUint;
-use num_bigint::RandBigInt;
 use num_prime::{nt_funcs, RandPrime};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
-use rand_chacha::ChaCha8Rng;
-use rand_core::SeedableRng as SeedableRng2;
+use rand_chacha_010::ChaCha8Rng;
 
 use primal_check::miller_rabin;
 
@@ -29,7 +28,11 @@ pub fn bench_is_prime(c: &mut Criterion) {
     });
 
     group.bench_function("glass_pumpkin", |b| {
-        b.iter(|| numbers().filter(|&n| gprime::check(&n.into())).count())
+        b.iter(|| {
+            numbers()
+                .filter(|&n| gprime::check(&n.into()).unwrap())
+                .count()
+        })
     });
     group.bench_function("primal-check", |b| {
         b.iter(|| numbers().filter(|&n| miller_rabin(n)).count())
@@ -40,7 +43,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
     ////// 256 bits Bigint /////
 
     let mut rng = StdRng::seed_from_u64(42);
-    let numbers: Vec<_> = repeat_with(|| rng.gen_biguint(256)).take(32).collect();
+    let numbers: Vec<_> = repeat_with(|| rng.random_biguint(256)).take(32).collect();
 
     let mut group = c.benchmark_group("primality check (u256)");
     group.bench_function("num-prime (this crate)", |b| {
@@ -52,7 +55,12 @@ pub fn bench_is_prime(c: &mut Criterion) {
         })
     });
     group.bench_function("glass_pumpkin", |b| {
-        b.iter(|| numbers.iter().filter(|&n| gprime::check(n)).count())
+        b.iter(|| {
+            numbers
+                .iter()
+                .filter(|&n| gprime::check(n).unwrap())
+                .count()
+        })
     });
     group.bench_function("glass_pumpkin (BPSW)", |b| {
         b.iter(|| numbers.iter().filter(|&n| gprime::strong_check(n)).count())
@@ -69,7 +77,12 @@ pub fn bench_is_prime(c: &mut Criterion) {
         })
     });
     group.bench_function("glass_pumpkin", |b| {
-        b.iter(|| numbers.iter().filter(|&n| safe_gprime::check(n)).count())
+        b.iter(|| {
+            numbers
+                .iter()
+                .filter(|&n| safe_gprime::check(n).unwrap())
+                .count()
+        })
     });
     group.bench_function("glass_pumpkin (BPSW)", |b| {
         b.iter(|| {
@@ -84,7 +97,7 @@ pub fn bench_is_prime(c: &mut Criterion) {
     ////// 2048 bits Bigint /////
 
     let mut rng = StdRng::seed_from_u64(123);
-    let numbers: Vec<_> = repeat_with(|| rng.gen_biguint(2048)).take(8).collect();
+    let numbers: Vec<_> = repeat_with(|| rng.random_biguint(2048)).take(8).collect();
 
     let mut group = c.benchmark_group("primality check (u2048)");
     group.bench_function("num-prime (this crate)", |b| {
@@ -96,7 +109,12 @@ pub fn bench_is_prime(c: &mut Criterion) {
         })
     });
     group.bench_function("glass_pumpkin", |b| {
-        b.iter(|| numbers.iter().filter(|&n| gprime::check(n)).count())
+        b.iter(|| {
+            numbers
+                .iter()
+                .filter(|&n| gprime::check(n).unwrap())
+                .count()
+        })
     });
     group.bench_function("glass_pumpkin (BPSW)", |b| {
         b.iter(|| numbers.iter().filter(|&n| gprime::strong_check(n)).count())
@@ -113,7 +131,12 @@ pub fn bench_is_prime(c: &mut Criterion) {
         })
     });
     group.bench_function("glass_pumpkin", |b| {
-        b.iter(|| numbers.iter().filter(|&n| safe_gprime::check(n)).count())
+        b.iter(|| {
+            numbers
+                .iter()
+                .filter(|&n| safe_gprime::check(n).unwrap())
+                .count()
+        })
     });
     group.bench_function("glass_pumpkin (BPSW)", |b| {
         b.iter(|| {
@@ -195,6 +218,8 @@ pub fn bench_hard_factorization(c: &mut Criterion) {
 }
 
 pub fn bench_prime_gen(c: &mut Criterion) {
+    use rand_010::SeedableRng;
+
     let mut group = c.benchmark_group("prime generation (256 bits)");
     group.sample_size(10).sampling_mode(SamplingMode::Flat);
 

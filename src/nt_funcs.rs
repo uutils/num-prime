@@ -1371,7 +1371,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::{prelude::SliceRandom, random};
+    use rand::prelude::IndexedRandom;
+    use rand::random;
     use std::iter::FromIterator;
 
     /// 529341446939 * 529341447079 * 529341447139. SQUFOF and Hart's one-line
@@ -1424,7 +1425,7 @@ mod tests {
         assert!(!is_prime64(4_100_599_722_623_587));
 
         // ensure no factor for 100 random primes
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..100 {
             let x = random();
             if !is_prime64(x) {
