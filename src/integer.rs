@@ -239,11 +239,11 @@ mod tests {
 
         #[cfg(feature = "big-int")]
         {
-            use num_bigint::RandBigInt;
-            let mut rng = rand::thread_rng();
+            use num_bigint::BigRng09;
+            let mut rng = rand::rng();
             // test fast implementations of sqrt against nth_root
             for _ in 0..10 {
-                let x = rng.gen_biguint(150);
+                let x = rng.random_biguint(150);
                 assert_eq!(
                     ExactRoots::sqrt_exact(&x),
                     ExactRoots::nth_root_exact(&x, 2)
@@ -252,7 +252,7 @@ mod tests {
                     ExactRoots::cbrt_exact(&x),
                     ExactRoots::nth_root_exact(&x, 3)
                 );
-                let x = rng.gen_bigint(150);
+                let x = rng.random_bigint(150);
                 assert_eq!(
                     ExactRoots::cbrt_exact(&x),
                     ExactRoots::nth_root_exact(&x, 3)
@@ -260,9 +260,9 @@ mod tests {
             }
             // test perfect powers
             for _ in 0..10 {
-                let x = rng.gen_biguint(150);
+                let x = rng.random_biguint(150);
                 assert!(matches!(ExactRoots::sqrt_exact(&(&x * &x)), Some(v) if v == x));
-                let x = rng.gen_biguint(150);
+                let x = rng.random_biguint(150);
                 assert!(
                     matches!(ExactRoots::cbrt_exact(&(&x * &x * &x)), Some(v) if v == x),
                     "failed at {}",
@@ -271,8 +271,8 @@ mod tests {
             }
             // test non-perfect powers
             for _ in 0..10 {
-                let x = rng.gen_biguint(150);
-                let y = rng.gen_biguint(150);
+                let x = rng.random_biguint(150);
+                let y = rng.random_biguint(150);
                 if x == y {
                     continue;
                 }
